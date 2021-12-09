@@ -3,6 +3,7 @@ import oneflow.nn as nn
 import numpy as np
 
 
+
 # Note that model with `in22k` means pretrained weight on imagenet22k dataset
 model_urls = {
     "swin_tiny_patch4_window7_224": "https://oneflow-public.oss-cn-beijing.aliyuncs.com/model_zoo/flowvision/classification/Swin_Transformer/swin_tiny_patch4_window7_224.zip",
@@ -35,7 +36,7 @@ def drop_path(x, drop_prob: float = 0.5, training: bool = False):
     shape = (x.shape[0],) + (1,) * (
         x.ndim - 1
     )  # work with diff dim tensors, not just 2D ConvNets
-    random_tensor = keep_prob + flow.rand(*shape, dtype=x.dtype, device=x.device)
+    random_tensor = flow.rand(*shape, dtype=x.dtype, device=x.device) + keep_prob
     random_tensor = random_tensor.floor()  # binarize
     output = x.div(keep_prob) * random_tensor
     return output
@@ -50,7 +51,7 @@ class DropPath(nn.Module):
         self.drop_prob = drop_prob
 
     def forward(self, x):
-        return drop_path(x)
+        return drop_path(x, self.drop_prob, self.training)
 
 
 def window_partition(x, window_size):
