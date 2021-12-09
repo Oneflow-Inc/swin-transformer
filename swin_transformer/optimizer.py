@@ -18,7 +18,8 @@ def build_optimizer(config, model):
         skip = model.no_weight_decay()
     if hasattr(model, 'no_weight_decay_keywords'):
         skip_keywords = model.no_weight_decay_keywords()
-    parameters = set_weight_decay(model, skip, skip_keywords)
+    # FIXME: weight decay on pos embed
+    parameters = set_weight_decay(model, {'absolute_pos_embed'}, {'relative_position_bias_table'})
 
     opt_lower = config.TRAIN.OPTIMIZER.NAME.lower()
     optimizer = None
@@ -27,7 +28,7 @@ def build_optimizer(config, model):
                               lr=config.TRAIN.BASE_LR, weight_decay=config.TRAIN.WEIGHT_DECAY)
     elif opt_lower == 'adamw':
         optimizer = optim.AdamW(parameters, eps=config.TRAIN.OPTIMIZER.EPS, betas=config.TRAIN.OPTIMIZER.BETAS,
-                                lr=config.TRAIN.BASE_LR, weight_decay=config.TRAIN.WEIGHT_DECAY)
+                                lr=config.TRAIN.BASE_LR, weight_decay=config.TRAIN.WEIGHT_DECAY, do_bias_correction=False)
 
     return optimizer
 
