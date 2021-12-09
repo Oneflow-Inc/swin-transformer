@@ -5,7 +5,7 @@
 # Written by Ze Liu
 # --------------------------------------------------------
 
-from torch import optim as optim
+from oneflow import optim as optim
 
 
 def build_optimizer(config, model):
