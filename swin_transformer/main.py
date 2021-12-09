@@ -36,7 +36,7 @@ def parse_option():
     )
 
     # easy config modification
-    parser.add_argument('--batch-size', type=int, help="batch size for single GPU")
+    parser.add_argument('--batch-size', type=int, default=8, help="batch size for single GPU")
     parser.add_argument('--data-path', type=str, help='path to dataset')
     parser.add_argument('--zip', action='store_true', help='use zipped dataset instead of folder dataset')
     parser.add_argument('--cache-mode', type=str, default='part', choices=['no', 'full', 'part'],
@@ -52,6 +52,9 @@ def parse_option():
     parser.add_argument('--tag', help='tag of experiment')
     parser.add_argument('--eval', action='store_true', help='Perform evaluation only')
     parser.add_argument('--throughput', action='store_true', help='Test throughput only')
+
+    # distributed training
+    parser.add_argument("--local_rank", type=int, default=0, required=False, help='local rank for DistributedDataParallel')
 
     args, unparsed = parser.parse_known_args()
 

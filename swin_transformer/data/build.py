@@ -6,15 +6,16 @@
 # --------------------------------------------------------
 
 import os
-import oneflow as torch
-
 import numpy as np
-from flowvision import datasets, transforms
-from flowvision.transforms.constants import IMAGENET_DEFAULT_MEAN, IMAGENET_DEFAULT_STD
-from flowvision.transforms import create_transform
-from flowvision.transforms.functional import str_to_interp_mode
+
+import oneflow as torch
 from oneflow.utils.data import DataLoader
-from .mixup import Mixup
+
+from flowvision import datasets, transforms
+from flowvision.data.constants import IMAGENET_DEFAULT_MEAN, IMAGENET_DEFAULT_STD
+from flowvision.data import create_transform
+from flowvision.transforms.functional import str_to_interp_mode
+from flowvision.data import Mixup
 
 from .cached_image_folder import CachedImageFolder
 from .samplers import SubsetRandomSampler
