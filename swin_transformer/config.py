@@ -90,7 +90,10 @@ _C.TRAIN = CN()
 _C.TRAIN.START_EPOCH = 0
 _C.TRAIN.EPOCHS = 300
 _C.TRAIN.WARMUP_EPOCHS = 20
-_C.TRAIN.WEIGHT_DECAY = 0.05
+# _C.TRAIN.WARMUP_EPOCHS = 0
+# _C.TRAIN.WEIGHT_DECAY = 0.05
+_C.TRAIN.WEIGHT_DECAY=5e-4
+# _C.TRAIN.BASE_LR = 0.01
 _C.TRAIN.BASE_LR = 5e-4
 _C.TRAIN.WARMUP_LR = 5e-7
 _C.TRAIN.MIN_LR = 5e-6
@@ -177,6 +180,7 @@ _C.EVAL_MODE = False
 _C.THROUGHPUT_MODE = False
 # local rank for DistributedDataParallel, given by command line argument
 _C.LOCAL_RANK = 0
+# _C.MODEL_ARCH = ''
 
 
 def _update_config_from_file(config, cfg_file):
@@ -216,6 +220,8 @@ def update_config(config, args):
         config.TRAIN.ACCUMULATION_STEPS = args.accumulation_steps
     if args.use_checkpoint:
         config.TRAIN.USE_CHECKPOINT = True
+    # if args.amp_opt_level:
+    #     config.AMP_OPT_LEVEL = args.amp_opt_level
     if args.output:
         config.OUTPUT = args.output
     if args.tag:
@@ -226,7 +232,8 @@ def update_config(config, args):
         config.THROUGHPUT_MODE = True
 
     # set local rank for distributed training
-#    config.LOCAL_RANK = args.local_rank
+    # config.LOCAL_RANK = args.local_rank
+    # config.MODEL_ARCH = args.model_arch
 
     # output folder
     config.OUTPUT = os.path.join(config.OUTPUT, config.MODEL.NAME, config.TAG)

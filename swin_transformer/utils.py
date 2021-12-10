@@ -30,8 +30,8 @@ def load_checkpoint(config, model, optimizer, lr_scheduler, logger):
         if 'max_accuracy' in checkpoint:
             max_accuracy = checkpoint['max_accuracy']
 
-    del checkpoint
-    torch.cuda.empty_cache()
+    # del checkpoint
+    # torch.cuda.empty_cache()
     return max_accuracy
 
 
@@ -77,6 +77,6 @@ def auto_resume_helper(output_dir):
 
 def reduce_tensor(tensor):
     rt = tensor.clone()
-    torch.comm.all_reduce(rt)
+    rt = torch.comm.all_reduce(rt)
     rt /= torch.env.get_world_size()
     return rt

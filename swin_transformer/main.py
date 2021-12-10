@@ -127,6 +127,7 @@ def main(config):
         if flow.env.get_rank() == 0 and (epoch % config.SAVE_FREQ == 0 or epoch == (config.TRAIN.EPOCHS - 1)):
             save_checkpoint(config, epoch, model_without_ddp, max_accuracy, optimizer, lr_scheduler, logger)
 
+        # no validate
         acc1, acc5, loss = validate(config, data_loader_val, model)
         logger.info(f"Accuracy of the network on the {len(dataset_val)} test images: {acc1:.1f}%")
         max_accuracy = max(max_accuracy, acc1)
@@ -267,6 +268,9 @@ def throughput(data_loader, model, logger):
 
 
 if __name__ == '__main__':
+    # import multiprocessing as mp
+    # mp.set_start_method("spawn")
+
     _, config = parse_option()
 
     if 'RANK' in os.environ and 'WORLD_SIZE' in os.environ:
