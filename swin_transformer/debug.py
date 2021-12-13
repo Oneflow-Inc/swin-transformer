@@ -71,8 +71,8 @@ if __name__ == '__main__':
     input_tensor = flow.ones(config.DATA.BATCH_SIZE, 3, 224, 224, dtype=flow.float32, device="cuda")
 
     optimizer = build_optimizer(config, model)
-    model = flow.nn.parallel.DistributedDataParallel(model, broadcast_buffers=False)
-    model_without_ddp = model
+    # model = flow.nn.parallel.DistributedDataParallel(model, broadcast_buffers=False)
+    # model_without_ddp = model
 
     # criterion = flow.nn.CrossEntropyLoss()
 
