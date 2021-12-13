@@ -16,8 +16,8 @@ import oneflow as flow
 
 # import oneflow.backends.cudnn as cudnn
 
-from flowvision.loss.cross_entropy import LabelSmoothingCrossEntropy, SoftTargetCrossEntropy
-from flowvision.utils.metrics import accuracy, AverageMeter
+# from flowvision.loss.cross_entropy import LabelSmoothingCrossEntropy, SoftTargetCrossEntropy
+# from flowvision.utils.metrics import accuracy, AverageMeter
 
 from config import get_config
 from models import build_model
