@@ -12,20 +12,14 @@ import datetime
 
 import numpy as np
 
-import oneflow as flow
+import torch as flow
 
-# import oneflow.backends.cudnn as cudnn
-
-from flowvision.loss.cross_entropy import LabelSmoothingCrossEntropy, SoftTargetCrossEntropy
-from flowvision.utils.metrics import accuracy, AverageMeter
+# from flowvision.loss.cross_entropy import LabelSmoothingCrossEntropy, SoftTargetCrossEntropy
+# from flowvision.utils.metrics import accuracy, AverageMeter
 
 from config import get_config
 from models import build_model
-from data import build_loader
-from lr_scheduler import build_scheduler
 from optimizer import build_optimizer
-from logger import create_logger
-# from utils import load_checkpoint, save_checkpoint, get_grad_norm, auto_resume_helper, reduce_tensor
 
 
 def parse_option():
