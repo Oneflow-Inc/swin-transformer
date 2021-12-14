@@ -123,6 +123,7 @@ if __name__ == '__main__':
         
         outputs = model(samples)
         outputs.sum().backward()
+        
         # loss = criterion(outputs, targets)
         # optimizer.zero_grad()
         # loss.backward()
