@@ -99,6 +99,10 @@ if __name__ == '__main__':
 
         samples, targets = data_loader_train_iter.__next__()
         samples = samples.cuda()
+        targets = targets.cuda()
+
+        if mixup_fn is not None:
+            samples, targets = mixup_fn(samples, targets)
         
         output = model(samples)
         output.sum().backward()
