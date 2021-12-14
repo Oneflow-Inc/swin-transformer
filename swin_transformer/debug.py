@@ -72,7 +72,7 @@ if __name__ == '__main__':
 
     max_accuracy = 0.0
     start_time = time.time()
-    for idx in range(1000):
+    for idx in range(50):
         model.train()
         optimizer.zero_grad()
         
@@ -84,9 +84,9 @@ if __name__ == '__main__':
         optimizer.step()
 
 
-    # total_time = time.time() - start_time
-    # total_time_str = str(datetime.timedelta(seconds=int(total_time)))
-
+    total_time = time.time() - start_time
+    total_time_str = str(datetime.timedelta(seconds=int(total_time)))
+    print(total_time_str)
 
 
 
