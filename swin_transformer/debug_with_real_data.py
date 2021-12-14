@@ -85,8 +85,14 @@ if __name__ == '__main__':
     # criterion = flow.nn.CrossEntropyLoss()
     data_loader_train_iter = iter(data_loader_train)
 
+    batch_time = AverageMeter()
+    loss_meter = AverageMeter()
+    norm_meter = AverageMeter()
+
     max_accuracy = 0.0
     start_time = time.time()
+    end = time.time()
+
     for idx in range(200):
         model.train()
         optimizer.zero_grad()
@@ -107,6 +113,11 @@ if __name__ == '__main__':
         if config.TRAIN.CLIP_GRAD:
             grad_norm = flow.nn.utils.clip_grad_norm_(model.parameters(), config.TRAIN.CLIP_GRAD)
         optimizer.step()
+
+        loss_meter.update(loss.item(), targets.size(0))
+        norm_meter.update(grad_norm)
+        batch_time.update(time.time() - end)
+        end = time.time()
 
     print(outputs)
     total_time = time.time() - start_time
