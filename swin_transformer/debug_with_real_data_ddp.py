@@ -122,17 +122,17 @@ if __name__ == '__main__':
             samples, targets = mixup_fn(samples, targets)
         
         outputs = model(samples)
-        # output.sum().backward()
-        loss = criterion(outputs, targets)
-        optimizer.zero_grad()
-        loss.backward()
+        outputs.sum().backward()
+        # loss = criterion(outputs, targets)
+        # optimizer.zero_grad()
+        # loss.backward()
 
         if config.TRAIN.CLIP_GRAD:
             grad_norm = flow.nn.utils.clip_grad_norm_(model.parameters(), config.TRAIN.CLIP_GRAD)
         optimizer.step()
 
         flow.cuda.synchronize()
-        loss_meter.update(loss.item(), targets.size(0))
+        # loss_meter.update(loss.item(), targets.size(0))
         norm_meter.update(grad_norm)
         batch_time.update(time.time() - end)
         end = time.time()
