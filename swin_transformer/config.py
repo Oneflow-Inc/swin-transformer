@@ -232,7 +232,7 @@ def update_config(config, args):
         config.THROUGHPUT_MODE = True
 
     # set local rank for distributed training
-    # config.LOCAL_RANK = args.local_rank
+    config.LOCAL_RANK = args.local_rank
     # config.MODEL_ARCH = args.model_arch
 
     # output folder
