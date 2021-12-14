@@ -78,7 +78,7 @@ if __name__ == '__main__':
 
     max_accuracy = 0.0
     start_time = time.time()
-    for idx in range(50):
+    for idx in range(200):
         model.train()
         optimizer.zero_grad()
         

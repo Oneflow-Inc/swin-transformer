@@ -1,0 +1,4 @@
+*.nsys-rep
+*.qdrep
+*.qdstrm
+*.sqlite
