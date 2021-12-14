@@ -64,6 +64,10 @@ def parse_option():
 
 if __name__ == '__main__':
     args, config = parse_option()
+
+    flow.boxing.nccl.set_fusion_threshold_mbytes(16)
+    flow.boxing.nccl.set_fusion_max_ops_num(24)
+
     model = build_model(config)
     model.cuda()
     optimizer = build_optimizer(config, model)
@@ -105,16 +109,16 @@ if __name__ == '__main__':
             samples, targets = mixup_fn(samples, targets)
         
         outputs = model(samples)
-        # output.sum().backward()
-        loss = criterion(outputs, targets)
-        optimizer.zero_grad()
-        loss.backward()
+        outputs.sum().backward()
+        # loss = criterion(outputs, targets)
+        # optimizer.zero_grad()
+        # loss.backward()
 
         if config.TRAIN.CLIP_GRAD:
             grad_norm = flow.nn.utils.clip_grad_norm_(model.parameters(), config.TRAIN.CLIP_GRAD)
         optimizer.step()
 
-        loss_meter.update(loss.item(), targets.size(0))
+        # loss_meter.update(loss.item(), targets.size(0))
         norm_meter.update(grad_norm)
         batch_time.update(time.time() - end)
         end = time.time()
