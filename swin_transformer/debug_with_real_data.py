@@ -16,8 +16,8 @@ import torch as flow
 
 # import oneflow.backends.cudnn as cudnn
 
-# from flowvision.loss.cross_entropy import LabelSmoothingCrossEntropy, SoftTargetCrossEntropy
-# from flowvision.utils.metrics import accuracy, AverageMeter
+from timm.loss import LabelSmoothingCrossEntropy, SoftTargetCrossEntropy
+from timm.utils import accuracy, AverageMeter
 
 from config import get_config
 from models import build_model
@@ -82,7 +82,13 @@ if __name__ == '__main__':
 
     dataset_train, dataset_val, data_loader_train, data_loader_val, mixup_fn = build_loader(config)
 
-    input_tensor = flow.ones(config.DATA.BATCH_SIZE, 3, 224, 224, dtype=flow.float32, device="cuda")
+    if config.AUG.MIXUP > 0.:
+        # smoothing is handled with mixup label transform
+        criterion = SoftTargetCrossEntropy()
+    elif config.MODEL.LABEL_SMOOTHING > 0.:
+        criterion = LabelSmoothingCrossEntropy(smoothing=config.MODEL.LABEL_SMOOTHING)
+    else:
+        criterion = flow.nn.CrossEntropyLoss()
 
     optimizer = build_optimizer(config, model)
     # model = flow.nn.parallel.DistributedDataParallel(model, broadcast_buffers=False)
@@ -104,14 +110,17 @@ if __name__ == '__main__':
         if mixup_fn is not None:
             samples, targets = mixup_fn(samples, targets)
         
-        output = model(samples)
-        output.sum().backward()
+        outputs = model(samples)
+        # output.sum().backward()
+        loss = criterion(outputs, targets)
+        optimizer.zero_grad()
+        loss.backward()
 
         if config.TRAIN.CLIP_GRAD:
             grad_norm = flow.nn.utils.clip_grad_norm_(model.parameters(), config.TRAIN.CLIP_GRAD)
         optimizer.step()
 
-    print(output)
+    print(outputs)
     total_time = time.time() - start_time
     total_time_str = str(datetime.timedelta(seconds=int(total_time)))
     print(total_time_str)
