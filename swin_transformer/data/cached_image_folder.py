@@ -8,8 +8,8 @@
 import io
 import os
 import time
-import oneflow as torch
-import oneflow.utils.data as data
+import torch
+import torch.utils.data as data
 from PIL import Image
 
 from .zipreader import is_zip_path, ZipReader

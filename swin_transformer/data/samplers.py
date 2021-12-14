@@ -5,7 +5,7 @@
 # Written by Ze Liu
 # --------------------------------------------------------
 
-import oneflow as torch
+import torch
 
 
 class SubsetRandomSampler(torch.utils.data.Sampler):
