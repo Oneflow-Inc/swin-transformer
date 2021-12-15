@@ -1,0 +1,25 @@
+Log file created at: 2021/12/09 10:39:41
+Running on machine: oneflow-22
+Log line format: [IWEF]mmdd hh:mm:ss.uuuuuu threadid file:line] msg
+I1209 10:39:41.706784 3659246 global.h:36] NewGlobal 14cudaDeviceProp
+I1209 10:39:41.743881 3659246 global.h:36] NewGlobal N7oneflow7EnvDescE
+I1209 10:39:41.744063 3659246 global.h:36] NewGlobal N7oneflow10ProcessCtxE
+I1209 10:39:41.744092 3659246 env_global_objects_scope.cpp:153] using rpc backend: local
+I1209 10:39:41.744113 3659246 global.h:36] NewGlobal N7oneflow12ResourceDescE
+I1209 10:39:41.744128 3659246 global.h:36] NewGlobal N7oneflow12ResourceDescE
+I1209 10:39:41.808670 3659246 global.h:36] NewGlobal N7oneflow2ep21DeviceManagerRegistryE
+I1209 10:39:41.808724 3659246 global.h:36] NewGlobal N7oneflow10ThreadPoolE
+I1209 10:39:41.810461 3659246 global.h:36] NewGlobal N7oneflow16EagerNcclCommMgrE
+I1209 10:39:41.810479 3659246 global.h:36] NewGlobal N7oneflow18CudnnConvAlgoCacheE
+I1209 10:39:41.810484 3659246 global.h:36] NewGlobal N7oneflow2vm19VirtualMachineScopeE
+I1209 10:39:41.810490 3659246 global.h:36] NewGlobal N7oneflow14VirtualMachineE
+I1209 10:39:41.810968 3659246 virtual_machine.cpp:80] transport stream type: N7oneflow2vm13CpuStreamTypeE
+I1209 10:39:41.810981 3659246 virtual_machine.cpp:80] transport stream type: N7oneflow2vm14CudaStreamTypeE
+I1209 10:39:41.810984 3659246 virtual_machine.cpp:80] transport stream type: N7oneflow2vm19AsyncCudaStreamTypeE
+I1209 10:39:41.811156 3659246 global.h:36] NewGlobal N7oneflow27EagerJobBuildAndInferCtxMgrE
+I1209 10:39:41.811167 3659246 global.h:36] NewGlobal N7oneflow12EpollCommNetE
+I1209 10:39:41.811276 3659246 epoll_comm_network.cpp:63] CommNet:Epoll listening on 0.0.0.0:40065
+I1209 10:39:41.811305 3659246 epoll_comm_network.cpp:197] machine 0 sockfd -1
+I1209 10:39:41.811414 3659246 global.h:36] NewGlobal N7oneflow9TransportE
+I1209 10:39:41.811486 3659246 global.h:43] DeleteGlobal N7oneflow17ForeignLockHelperE
+I1209 10:39:41.811566 3659246 global.h:36] NewGlobal N7oneflow25MultiClientSessionContextE

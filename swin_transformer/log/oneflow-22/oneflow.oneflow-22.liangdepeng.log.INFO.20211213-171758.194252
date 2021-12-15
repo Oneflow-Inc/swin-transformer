@@ -1,0 +1,26 @@
+Log file created at: 2021/12/13 17:17:58
+Running on machine: oneflow-22
+Log line format: [IWEF]mmdd hh:mm:ss.uuuuuu threadid file:line] msg
+I1213 17:17:58.021420 194252 global.h:36] NewGlobal 14cudaDeviceProp
+I1213 17:17:58.080826 194252 global.h:36] NewGlobal N7oneflow7EnvDescE
+I1213 17:17:58.080885 194252 global.h:36] NewGlobal N7oneflow10ProcessCtxE
+I1213 17:17:58.080897 194252 env_global_objects_scope.cpp:153] using rpc backend: local
+I1213 17:17:58.080910 194252 global.h:36] NewGlobal N7oneflow12ResourceDescE
+I1213 17:17:58.080917 194252 global.h:36] NewGlobal N7oneflow12ResourceDescE
+I1213 17:17:58.160785 194252 global.h:36] NewGlobal N7oneflow2ep21DeviceManagerRegistryE
+I1213 17:17:58.160867 194252 global.h:36] NewGlobal N7oneflow10ThreadPoolE
+I1213 17:17:58.163245 194252 global.h:36] NewGlobal N7oneflow16EagerNcclCommMgrE
+I1213 17:17:58.163298 194252 global.h:36] NewGlobal N7oneflow18CudnnConvAlgoCacheE
+I1213 17:17:58.163311 194252 global.h:36] NewGlobal N7oneflow2vm19VirtualMachineScopeE
+I1213 17:17:58.163319 194252 global.h:36] NewGlobal N7oneflow14VirtualMachineE
+I1213 17:17:58.163714 194252 virtual_machine.cpp:80] transport stream type: N7oneflow2vm13CpuStreamTypeE
+I1213 17:17:58.163740 194252 virtual_machine.cpp:80] transport stream type: N7oneflow2vm14CudaStreamTypeE
+I1213 17:17:58.163749 194252 virtual_machine.cpp:80] transport stream type: N7oneflow2vm19AsyncCudaStreamTypeE
+I1213 17:17:58.163980 194252 global.h:36] NewGlobal N7oneflow27EagerJobBuildAndInferCtxMgrE
+I1213 17:17:58.164007 194252 global.h:36] NewGlobal N7oneflow12EpollCommNetE
+I1213 17:17:58.164146 194252 epoll_comm_network.cpp:63] CommNet:Epoll listening on 0.0.0.0:37635
+I1213 17:17:58.164201 194252 epoll_comm_network.cpp:197] machine 0 sockfd -1
+I1213 17:17:58.164374 194252 global.h:36] NewGlobal N7oneflow9TransportE
+I1213 17:17:58.164474 194252 global.h:43] DeleteGlobal N7oneflow17ForeignLockHelperE
+I1213 17:17:58.164597 194252 global.h:36] NewGlobal N7oneflow25MultiClientSessionContextE
+I1213 17:18:04.478235 194405 eager_nccl_comm_manager.cpp:69]  EagerNcclCommMgr::ncclCommInitRank device_vec.size() = 1, nccl_unique_id = 0200ffffffd5ffffffb3ffffffc0ffffffa80116000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000, rank = 0, key = {eager_nccl_unique_id_rpc_key,0:0}
