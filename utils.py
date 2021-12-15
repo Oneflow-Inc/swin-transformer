@@ -1,3 +1,5 @@
+import torch
+
 def set_weight_decay(model, skip_list=(), skip_keywords=()):
     has_decay = []
     no_decay = []
@@ -20,3 +22,13 @@ def check_keywords_in_name(name, keywords=()):
         if keyword in name:
             isin = True
     return isin
+
+def load_from_torch(model, torch_dict):
+    parameters = torch_dict
+    new_parameters = dict()
+    for key, value in parameters.items():
+        if "num_batches_tracked" not in key:
+          val = value.detach().cpu().numpy()
+          new_parameters[key] = val
+    model.load_state_dict(new_parameters)
+    return model

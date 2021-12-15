@@ -676,31 +676,3 @@ class SwinTransformer(nn.Module):
         x = self.forward_features(x)
         x = self.head(x)
         return x
-
-
-if __name__ == '__main__':
-    from optimizer import set_weight_decay
-    x = flow.ones([2, 3, 224, 224]).cuda()
-    model = SwinTransformer().cuda().eval()
-    model.load_state_dict(flow.load('./vgg16_flow'))
-    loss_fn = nn.MSELoss()
-    parameters = set_weight_decay(model, {'absolute_pos_embed'}, {'relative_position_bias_table'})
-    optimizer = flow.optim.SGD(model.parameters(), lr=0.001, momentum=0.9, weight_decay=0.05)
-    # optimizer = flow.optim.AdamW(parameters, eps=1e-8, betas=(0.9, 0.999), lr=0.001, weight_decay=0.05, do_bias_correction=True, amsgrad=True)
-    labels = flow.zeros(2, 1000).cuda()
-    with open('oneflow_ADAMW.txt', 'w') as f:
-        for i in range(500):
-            optimizer.zero_grad()
-            output = model(x)
-            loss_fn(output, labels).backward()
-
-            # for i in optimizer.param_groups[0].parameters:
-            #     ii = i.grad
-            # zzz = model.head.weight.grad.data
-            # zzz = model.patch_embed.proj.weight.grad.data
-            # zzzzz = x.grad.numpy()
-            optimizer.step() #Oneflow
-            # zzz = model.norm.weight.grad.data
-            # print(output.abs().sum().item())
-            # f.write(str(output.sum().item()))
-            # f.write('\n')
