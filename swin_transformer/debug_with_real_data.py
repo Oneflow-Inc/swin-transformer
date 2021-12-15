@@ -115,7 +115,8 @@ def run():
         optimizer.step()
 
         loss_meter.update(loss.item(), targets.size(0))
-        norm_meter.update(grad_norm)
+        if config.TRAIN.CLIP_GRAD:
+            norm_meter.update(grad_norm)
         batch_time.update(time.time() - end)
         end = time.time()
 
@@ -126,7 +127,7 @@ def run():
 
 if __name__ == '__main__':
     # run without profile >>> bash debug_with_real_data.sh
-    run()
+    # run()
 
     # run with line_profiler profile >>> bash debug_with_real_data.sh > line_profile_flow.log 2>&1
     # from line_profiler import LineProfiler
@@ -136,13 +137,13 @@ if __name__ == '__main__':
     # lp.print_stats()
 
     # run with cProfile profile >>> bash debug_with_real_data.sh > cProfile_flow.log 2>&1
-    # import cProfile, pstats
-    # cp = cProfile.Profile()
-    # cp.enable()
-    # run()
-    # cp.disable()
-    # stats = pstats.Stats(cp).sort_stats('cumtime')
-    # stats.print_stats()
+    import cProfile, pstats
+    cp = cProfile.Profile()
+    cp.enable()
+    run()
+    cp.disable()
+    stats = pstats.Stats(cp).sort_stats('cumtime')
+    stats.print_stats()
 
 
 
