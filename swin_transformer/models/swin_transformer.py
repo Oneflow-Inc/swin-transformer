@@ -1,8 +1,8 @@
 import oneflow as flow
 import oneflow.nn as nn
+import oneflow.nn.functional as F
 import numpy as np
 from .linspace import linspace_op as linspace
-
 
 # Note that model with `in22k` means pretrained weight on imagenet22k dataset
 model_urls = {
@@ -78,6 +78,8 @@ class Mlp(nn.Module):
         out_features=None,
         act_layer=nn.GELU,
         drop=0.0,
+        fused_gelu=False,
+        fused_bias_add_dropout=False,
     ):
         super().__init__()
         out_features = out_features or in_features
@@ -86,13 +88,25 @@ class Mlp(nn.Module):
         self.act = act_layer()
         self.fc2 = nn.Linear(hidden_features, out_features)
         self.drop = nn.Dropout(drop)
+        self.fused_gelu = fused_gelu
 
     def forward(self, x):
-        x = self.fc1(x)
-        x = self.act(x)
-        x = self.drop(x)
-        x = self.fc2(x)
-        x = self.drop(x)
+        if self.fused_gelu and self.act == nn.GELU:
+            x = flow._C.linear(x, self.fc1.weight, transpose_a=False, transpose_b=True)
+            x = flow._C.fused_bias_add_gelu(x, self.fc1.bias, axis=2)
+            x = self.drop(x)
+            if fused_bias_add_dropout:
+                x = flow._C.linear(x, self.fc2.weight, transpose_a=False, transpose_b=True)
+                x = flow._C.fused_bias_add_dropout(x, self.fc2.bias, p=drop, axis=2)
+            else:
+                x = self.fc2(x)
+                x = self.drop(x)
+        else:
+            x = self.fc1(x)
+            x = self.act(x)
+            x = self.drop(x)
+            x = self.fc2(x)
+            x = self.drop(x)
         return x
 
 
@@ -118,6 +132,7 @@ class WindowAttention(nn.Module):
         qk_scale=None,
         attn_drop=0.0,
         proj_drop=0.0,
+        fused_bias_add_dropout=False,
     ):
 
         super().__init__()
@@ -154,6 +169,8 @@ class WindowAttention(nn.Module):
         self.proj = nn.Linear(dim, dim)
         self.proj_drop = nn.Dropout(proj_drop)
         self.softmax = nn.Softmax(dim=-1)
+        self.fused_bias_add_dropout=fused_bias_add_dropout
+        self.p = proj_drop
 
     def forward(self, x, mask=None):
         """
@@ -170,7 +187,8 @@ class WindowAttention(nn.Module):
         q, k, v = qkv[0], qkv[1], qkv[2]
 
         q = q * self.scale
-        attn = flow.matmul(q, k.transpose(-2, -1))
+        # attn = flow.matmul(q, k.transpose(-2, -1))
+        attn = flow.matmul(q, k, transpose_b=True)
 
         relative_position_bias = self.relative_position_bias_table[
             self.relative_position_index.view(-1)
@@ -197,8 +215,12 @@ class WindowAttention(nn.Module):
         attn = self.attn_drop(attn)
 
         x = flow.matmul(attn, v).transpose(1, 2).reshape(B_, N, C)
-        x = self.proj(x)
-        x = self.proj_drop(x)
+        if self.fused_bias_add_dropout:
+            x = flow._C.matmul(x, self.proj.weight, transpose_a=False, transpose_b=True)
+            x = flow._C.fused_bias_add_dropout(x, self.proj.bias, p=self.p, axis=2)
+        else:
+            x = self.proj(x)
+            x = self.proj_drop(x)
         return x
 
 
@@ -260,6 +282,7 @@ class SwinTransformerBlock(nn.Module):
             qk_scale=qk_scale,
             attn_drop=attn_drop,
             proj_drop=drop,
+            fused_bias_add_dropout=True,
         )
 
         self.drop_path = DropPath(drop_path) if drop_path > 0.0 else nn.Identity()
@@ -270,6 +293,8 @@ class SwinTransformerBlock(nn.Module):
             hidden_features=mlp_hidden_dim,
             act_layer=act_layer,
             drop=drop,
+            fused_gelu=True,
+            fused_bias_add_dropout=True,
         )
 
         if self.shift_size > 0:
@@ -608,6 +633,10 @@ class SwinTransformer(nn.Module):
         self.pos_drop = nn.Dropout(p=drop_rate)
 
         # stochastic depth
+        # dpr = [
+        #     x for x in np.linspace(0, drop_path_rate, sum(depths))
+        # ]  # stochastic depth decay rule
+
         dpr = [x.item() for x in linspace(0, drop_path_rate, sum(depths))]  # stochastic depth decay rule
         # TODO: here we use numpy, may have little difference with torch.linspace
         # dpr = [
