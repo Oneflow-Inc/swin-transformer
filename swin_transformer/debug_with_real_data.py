@@ -62,7 +62,7 @@ def parse_option():
 
     return args, config
 
-if __name__ == '__main__':
+def run():
     args, config = parse_option()
     model = build_model(config)
     model.cuda()
@@ -123,6 +123,26 @@ if __name__ == '__main__':
     total_time = time.time() - start_time
     total_time_str = str(datetime.timedelta(seconds=int(total_time)))
     print(total_time_str)
+
+if __name__ == '__main__':
+    # run without profile >>> bash debug_with_real_data.sh
+    run()
+
+    # run with line_profiler profile >>> bash debug_with_real_data.sh > line_profile.log 2>&1
+    # from line_profiler import LineProfiler
+    # lp = LineProfiler()
+    # lp_wrapper = lp(run)
+    # lp_wrapper()
+    # lp.print_stats()
+
+    # run with cProfile profile >>> bash debug_with_real_data.sh > cProfile.log 2>&1
+    # import cProfile
+    # cp = cProfile.Profile()
+    # cp.enable()
+    # run()
+    # cp.disable()
+    # cp.print_stats()
+
 
 
 
