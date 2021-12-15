@@ -68,7 +68,7 @@ def main(args):
     data_loader = ImageNetDataLoader(
         data_dir=args.data_path,
         crop_pct=0.875,
-        batch_size=16,
+        batch_size=args.batch_size,
         num_workers=8,
         split="train",
     )
@@ -89,3 +89,21 @@ def main(args):
             loss.backward()
             optimizer.step()
 
+
+def _parse_args():
+    parser = argparse.ArgumentParser("loss compare")
+    parser.add_argument(
+        "--batch_size", type=int, default=16, help="batch size",
+    )
+    parser.add_argument(
+        "--data_path", type=str, default="/DATA/disk1/ImageNet/extract/", help="path to imagenet2012"
+    )
+    parser.add_argument(
+        "--total_iters", type=int, default=100, help="total-iters"
+    )
+    return parser.parse_args()
+
+
+if __name__ == "__main__":
+    args = _parse_args()
+    main(args)
