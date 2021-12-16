@@ -23,11 +23,53 @@ def build_optimizer(config, model):
     opt_lower = config.TRAIN.OPTIMIZER.NAME.lower()
     optimizer = None
     if opt_lower == 'sgd':
-        optimizer = optim.SGD(parameters, momentum=config.TRAIN.OPTIMIZER.MOMENTUM,
-                              lr=config.TRAIN.BASE_LR, weight_decay=config.TRAIN.WEIGHT_DECAY)
+        # optimizer = optim.SGD(parameters, momentum=config.TRAIN.OPTIMIZER.MOMENTUM,
+        #                       lr=config.TRAIN.BASE_LR, weight_decay=config.TRAIN.WEIGHT_DECAY)
+        optimizer = optim.SGD(
+            [
+                {
+                    "params": parameters[0]['params'],
+                    "lr": config.TRAIN.BASE_LR,
+                    "momentum": config.TRAIN.OPTIMIZER.MOMENTUM,
+                    "weight_decay": config.TRAIN.WEIGHT_DECAY,
+                    "clip_grad_max_norm": 1.0,
+                    "clip_grad_norm_type": 2.0,
+                },
+                {
+                    "params": parameters[1]['params'],
+                    "lr": config.TRAIN.BASE_LR,
+                    "momentum": config.TRAIN.OPTIMIZER.MOMENTUM,
+                    "weight_decay": 0.,
+                    "clip_grad_max_norm": 1.0,
+                    "clip_grad_norm_type": 2.0,
+                }
+            ]
+        )
     elif opt_lower == 'adamw':
-        optimizer = optim.AdamW(parameters, eps=config.TRAIN.OPTIMIZER.EPS, betas=config.TRAIN.OPTIMIZER.BETAS,
-                                lr=config.TRAIN.BASE_LR, weight_decay=config.TRAIN.WEIGHT_DECAY)
+        # optimizer = optim.AdamW(parameters, eps=config.TRAIN.OPTIMIZER.EPS, betas=config.TRAIN.OPTIMIZER.BETAS,
+        #                         lr=config.TRAIN.BASE_LR, weight_decay=config.TRAIN.WEIGHT_DECAY)
+        optimizer = optim.AdamW(
+            [
+                {
+                    "params": parameters[0]['params'],
+                    "lr": config.TRAIN.BASE_LR,
+                    "betas": config.TRAIN.OPTIMIZER.BETAS,
+                    "eps": config.TRAIN.OPTIMIZER.EPS,
+                    "weight_decay": config.TRAIN.WEIGHT_DECAY,
+                    "clip_grad_max_norm": 1.0,
+                    "clip_grad_norm_type": 2.0,
+                },
+                {
+                    "params": parameters[1]['params'],
+                    "lr": config.TRAIN.BASE_LR,
+                    "betas": config.TRAIN.OPTIMIZER.BETAS,
+                    "eps": config.TRAIN.OPTIMIZER.EPS,
+                    "weight_decay": config.TRAIN.WEIGHT_DECAY,
+                    "clip_grad_max_norm": 1.0,
+                    "clip_grad_norm_type": 2.0,
+                }
+            ]
+        )
     return optimizer
 
 

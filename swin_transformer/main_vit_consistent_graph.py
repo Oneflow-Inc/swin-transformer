@@ -6,7 +6,8 @@ import numpy as np
 import oneflow as flow
 import oneflow.backends.cudnn as cudnn
 
-from cross_entropy import LabelSmoothingCrossEntropy, SoftTargetCrossEntropy
+# from cross_entropy import LabelSmoothingCrossEntropy, SoftTargetCrossEntropy
+from flowvision.loss.cross_entropy import LabelSmoothingCrossEntropy, SoftTargetCrossEntropy
 from flowvision.utils.metrics import accuracy, AverageMeter
 
 from config import get_config
@@ -46,7 +47,7 @@ def parse_option():
     parser.add_argument('--tag', help='tag of experiment')
     parser.add_argument('--eval', action='store_true', help='Perform evaluation only')
     parser.add_argument('--throughput', action='store_true', help='Test throughput only')
-    parser.add_argument("--model_arch", type=str, default="vit_b_16_384",
+    parser.add_argument("--model_arch", type=str, default="vit_b_16_224",
                         choices=["vit_b_16_224",
                                  "vit_b_16_384",
                                  "vit_b_32_224",
@@ -70,29 +71,30 @@ def main(config):
     model.cuda()
     logger.info(str(model))
 
-    optimizer = build_optimizer(config, model)
+    # optimizer = build_optimizer(config, model)
     # model = flow.nn.parallel.DistributedDataParallel(model, broadcast_buffers=False)
     model = model.to_consistent(
         placement=flow.placement("cuda", {0: range(flow.env.get_world_size())}), sbp=flow.sbp.broadcast)
     #    model =  model
-    model_without_ddp = model
+    # model_without_ddp = model
+    optimizer = build_optimizer(config, model)
 
     n_parameters = sum(p.numel() for p in model.parameters() if p.requires_grad)
     logger.info(f"number of params: {n_parameters}")
-    if hasattr(model_without_ddp, 'flops'):
-        flops = model_without_ddp.flops()
-        logger.info(f"number of GFLOPs: {flops / 1e9}")
+    # if hasattr(model_without_ddp, 'flops'):
+    #     flops = model_without_ddp.flops()
+    #     logger.info(f"number of GFLOPs: {flops / 1e9}")
 
     # lr_scheduler = build_scheduler(config, optimizer, len(data_loader_train))
     lr_scheduler = flow.optim.lr_scheduler.CosineAnnealingLR(optimizer, 2)
 
-    if config.AUG.MIXUP > 0.:
-        # smoothing is handled with mixup label transform
-        criterion = SoftTargetCrossEntropy()
-    elif config.MODEL.LABEL_SMOOTHING > 0.:
-        criterion = LabelSmoothingCrossEntropy(smoothing=config.MODEL.LABEL_SMOOTHING)
-    else:
-        criterion = flow.nn.CrossEntropyLoss()
+    # if config.AUG.MIXUP > 0.:
+    #     # smoothing is handled with mixup label transform
+    criterion = SoftTargetCrossEntropy()
+    # elif config.MODEL.LABEL_SMOOTHING > 0.:
+    #     criterion = LabelSmoothingCrossEntropy(smoothing=config.MODEL.LABEL_SMOOTHING)
+    # else:
+    # criterion = flow.nn.CrossEntropyLoss()
 
     max_accuracy = 0.0
 
@@ -165,23 +167,23 @@ def train_one_epoch(config, model, data_loader, optimizer, epoch, lr_scheduler, 
 
         if config.TRAIN.ACCUMULATION_STEPS > 1:
             loss = train_graph(image, label).to_local()
-            # if config.TRAIN.CLIP_GRAD:
-            #    grad_norm = flow.nn.utils.clip_grad_norm_(model.parameters(), config.TRAIN.CLIP_GRAD)
-            # else:
-            #    grad_norm = get_grad_norm(model.parameters())
+            if config.TRAIN.CLIP_GRAD:
+               grad_norm = flow.nn.utils.clip_grad_norm_(model.parameters(), config.TRAIN.CLIP_GRAD)
+            else:
+               grad_norm = get_grad_norm(model.parameters())
             if (idx + 1) % config.TRAIN.ACCUMULATION_STEPS == 0:
                 lr_scheduler.step_update(epoch * num_steps + idx)
         else:
-            loss = train_graph.build(image, label).to_local()
-            model = model.to_local()
-            if config.TRAIN.CLIP_GRAD:
-                grad_norm = flow.nn.utils.clip_grad_norm_(model.parameters(), config.TRAIN.CLIP_GRAD)
-            else:
-                grad_norm = get_grad_norm(model.parameters())
-            lr_scheduler.step_update(epoch * num_steps + idx)
+            loss = train_graph(image, label).to_local()
+            # model = model.to_local()
+            # if config.TRAIN.CLIP_GRAD:
+            #     grad_norm = flow.nn.utils.clip_grad_norm_(model.parameters(), config.TRAIN.CLIP_GRAD)
+            # else:
+            #     grad_norm = get_grad_norm(model.parameters())
+            # lr_scheduler.step_update(epoch * num_steps + idx)
 
         loss_meter.update(loss.item(), targets.size(0))
-        norm_meter.update(grad_norm)
+        # norm_meter.update(grad_norm)
         batch_time.update(time.time() - end)
         end = time.time()
 
@@ -217,17 +219,17 @@ def validate(config, data_loader, model, val_graph):
         target = target.to_consistent(
             placement=flow.placement("cuda", {0: range(flow.env.get_world_size())}), sbp=flow.sbp.split(0))
 
-        output = val_graph.build(image)
+        output = val_graph(image)
 
         # measure accuracy and record loss
-        loss = criterion(output, target)
+        # loss = criterion(output, target)
         acc1, acc5 = accuracy(output, target, topk=(1, 5))
 
         acc1 = reduce_tensor(acc1)
         acc5 = reduce_tensor(acc5)
-        loss = reduce_tensor(loss)
+        # loss = reduce_tensor(loss)
 
-        loss_meter.update(loss.item(), target.size(0))
+        # loss_meter.update(loss.item(), target.size(0))
         acc1_meter.update(acc1.item(), target.size(0))
         acc5_meter.update(acc5.item(), target.size(0))
 

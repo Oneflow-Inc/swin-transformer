@@ -44,6 +44,10 @@ class PositionEmbs(nn.Module):
             self.dropout = None
 
     def forward(self, x):
+        print(x.shape, self.pos_embedding.shape)
+        print(x.sbp, self.pos_embedding.sbp)
+        print(x.placement, self.pos_embedding.placement)
+
         out = x + self.pos_embedding
 
         if self.dropout:

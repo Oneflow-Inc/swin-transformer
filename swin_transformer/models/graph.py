@@ -7,14 +7,10 @@ class TrainGraph(flow.nn.Graph):
         self.model = model
         self.loss_fn = loss_fn
         self.add_optimizer(optimizer, lr_sch=lr_scheduler)
-        self.accumulation_steps = accumulation_steps
 
     def build(self, image, label):
         outputs = self.model(image)
         loss = self.loss_fn(outputs, label)
-        if self.accumulation_steps > 1:
-            loss = loss / self.accumulation_steps
-
         loss.backward()
         return loss
 
