@@ -98,7 +98,7 @@ if __name__ == '__main__':
     start_time = time.time()
     end = time.time()
 
-    for idx in range(20):
+    for idx in range(200):
         model.train()
         optimizer.zero_grad()
 
@@ -110,10 +110,7 @@ if __name__ == '__main__':
             samples, targets = mixup_fn(samples, targets)
         
         outputs = model(samples)
-
-        profiler.range_push(f'backward begin')
         outputs.sum().backward()
-        profiler.range_pop()
         # loss = criterion(outputs, targets)
         # optimizer.zero_grad()
         # loss.backward()
