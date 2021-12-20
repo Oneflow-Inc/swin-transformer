@@ -88,15 +88,16 @@ class Mlp(nn.Module):
         self.fc2 = nn.Linear(hidden_features, out_features)
         self.drop = nn.Dropout(drop)
         self.fused_gelu = fused_gelu
+        self.fused_bias_add_dropout = fused_bias_add_dropout
 
     def forward(self, x):
         if self.fused_gelu and self.act == nn.GELU:
             x = flow._C.linear(x, self.fc1.weight, transpose_a=False, transpose_b=True)
             x = flow._C.fused_bias_add_gelu(x, self.fc1.bias, axis=2)
             x = self.drop(x)
-            if fused_bias_add_dropout:
+            if self.fused_bias_add_dropout:
                 x = flow._C.linear(x, self.fc2.weight, transpose_a=False, transpose_b=True)
-                x = flow._C.fused_bias_add_dropout(x, self.fc2.bias, p=drop, axis=2)
+                x = flow._C.fused_bias_add_dropout(x, self.fc2.bias, p=self.drop, axis=2)
             else:
                 x = self.fc2(x)
                 x = self.drop(x)
@@ -281,7 +282,7 @@ class SwinTransformerBlock(nn.Module):
             qk_scale=qk_scale,
             attn_drop=attn_drop,
             proj_drop=drop,
-            fused_bias_add_dropout=True,
+            fused_bias_add_dropout=False,
         )
 
         self.drop_path = DropPath(drop_path) if drop_path > 0.0 else nn.Identity()
@@ -292,8 +293,8 @@ class SwinTransformerBlock(nn.Module):
             hidden_features=mlp_hidden_dim,
             act_layer=act_layer,
             drop=drop,
-            fused_gelu=True,
-            fused_bias_add_dropout=True,
+            fused_gelu=False,
+            fused_bias_add_dropout=False,
         )
 
         if self.shift_size > 0:

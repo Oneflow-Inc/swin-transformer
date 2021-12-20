@@ -50,6 +50,6 @@ class ImageNetDataLoader(DataLoader):
         super(ImageNetDataLoader, self).__init__(
             dataset=self.dataset,
             batch_size=batch_size,
-            shuffle=False,
+            shuffle=True,
             num_workers=num_workers,
         )
