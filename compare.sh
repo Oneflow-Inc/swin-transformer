@@ -2,7 +2,7 @@ set -aux
 
 DATA_PATH="/DATA/disk1/ImageNet/extract/"
 BATCH_SIZE=16
-TOTAL_ITERS=100
+TOTAL_ITERS=1000
 
 
 python loss_compare.py --batch_size $BATCH_SIZE \
