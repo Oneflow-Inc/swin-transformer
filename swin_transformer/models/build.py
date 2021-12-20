@@ -6,7 +6,7 @@
 # --------------------------------------------------------
 
 from .swin_transformer import SwinTransformer
-from .swin_mlp import SwinMLP
+# from .swin_mlp import SwinMLP
 
 
 def build_model(config):
