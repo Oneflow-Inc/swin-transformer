@@ -14,7 +14,14 @@ import oneflow.nn as flow_nn
 from data.of_loader import ImageNetDataLoader as of_dataloader
 # from models.swin_oneflow import SwinTransformer as of_swin
 # from models.vit_oneflow import vit_b_16_224 as of_swin
-from flowvision.models import mobilenet_v2  as of_swin
+# from models.cswin_oneflow import cswin_tiny_224 as of_swin
+# from models.conv_mixer_oneflow import convmixer_1536_20 as of_swin
+# from models.corssformer_oneflow import crossformer_base_patch4_group7_224 as of_swin
+# from models.pvt_oneflow import pvt_small as of_swin
+from models.mlp_mixer_oneflow import mlp_mixer_b16_224 as of_swin
+# from models.res_mlp_oneflow import resmlp_24_dist as of_swin
+# from flowvision.models import wide_resnet50_2  as of_swin
+
 
 # torch impl
 import torch
@@ -22,7 +29,14 @@ import torch.nn as torch_nn
 from data.torch_loader import ImageNetDataLoader as torch_dataloader
 # from models.swin_pytorch import SwinTransformer as torch_swin
 # from models.vit_pytorch import vit_b_16_224 as torch_swin
-from torchvision.models import mobilenet_v2  as torch_swin
+# from models.cswin_pytorch import cswin_tiny_224 as torch_swin
+# from models.conv_mixer_pytorch import convmixer_1536_20 as torch_swin
+# from models.corssformer_pytorch import crossformer_base_patch4_group7_224 as torch_swin
+# from models.pvt_pytorch import pvt_small as torch_swin
+from models.mlp_mixer_pytorch import mlp_mixer_b16_224 as torch_swin
+# from models.res_mlp_pytorch import resmlp_24_dist as torch_swin
+# from torchvision.models import wide_resnet50_2  as torch_swin
+
 
 from utils import *
 
@@ -50,7 +64,7 @@ def train(of_model, torch_model, args):
         data_dir=args.data_path,
         crop_pct=0.875,
         batch_size=args.batch_size,
-        num_workers=8,
+        num_workers=1,
         split="train",
     )
 
@@ -70,7 +84,7 @@ def train(of_model, torch_model, args):
         output = torch_model(data)
         th_loss = torch_loss(output, target)
         th_print_loss = th_loss.cpu().detach().numpy()
-        # print("iter: %d, pytorch loss: %.4f" % (iter_idx, th_print_loss))
+        print("iter: %d, pytorch loss: %.4f" % (iter_idx, th_print_loss))
         # using w+
         # with open("./loss_file/torch_loss.txt", "a") as f:
         #     f.write(str(th_print_loss))
@@ -87,7 +101,7 @@ def train(of_model, torch_model, args):
         of_output = of_model(of_data)
         flow_loss = of_loss(of_output, of_target)
         of_loss_file.write("{}\n".format(str(flow_loss.numpy())))
-        # print("iter: %d, loss: %.4f" % (iter_idx, flow_loss.numpy()))
+        print("iter: %d, loss: %.4f" % (iter_idx, flow_loss.numpy()))
         # with open("./loss_file/oneflow_loss.txt", "a") as f:
         #     f.write(str(flow_loss.numpy()))
         #     f.write("\n")

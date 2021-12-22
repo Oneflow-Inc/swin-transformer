@@ -317,7 +317,7 @@ def vit_b_16_224(pretrained: bool = False, progress: bool = True, **kwargs: Any)
         num_layers=12,
         num_classes=1000,
         attn_dropout_rate=0.0,
-        dropout_rate=0.1,
+        dropout_rate=0.,
         feat_dim=None,
         **kwargs,
     )
