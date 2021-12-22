@@ -143,9 +143,12 @@ class WindowAttention(nn.Module):
             coords_flatten[:, :, None] - coords_flatten[:, None, :]
         )  # 2, Wh*Ww, Wh*Ww
         relative_coords = relative_coords.permute(1, 2, 0)  # Wh*Ww, Wh*Ww, 2
-        relative_coords[:, :, 0] += self.window_size[0] - 1  # shift to start from 0
-        relative_coords[:, :, 1] += self.window_size[1] - 1
-        relative_coords[:, :, 0] *= 2 * self.window_size[1] - 1
+        relative_coords[:, :, 0] = relative_coords[:, :, 0] + self.window_size[0] - 1  # shift to start from 0
+        relative_coords[:, :, 1] = relative_coords[:, :, 1] + self.window_size[1] - 1
+        relative_coords[:, :, 0] = relative_coords[:, :, 0] * (2 * self.window_size[1] - 1)
+        # relative_coords[:, :, 0] += self.window_size[0] - 1  # shift to start from 0
+        # relative_coords[:, :, 1] += self.window_size[1] - 1
+        # relative_coords[:, :, 0] *= 2 * self.window_size[1] - 1
         relative_position_index = relative_coords.sum(-1)  # Wh*Ww, Wh*Ww
         self.register_buffer("relative_position_index", relative_position_index)
 

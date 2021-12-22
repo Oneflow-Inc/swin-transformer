@@ -55,6 +55,7 @@ def parse_option():
     parser.add_argument('--tag', help='tag of experiment')
     parser.add_argument('--eval', action='store_true', help='Perform evaluation only')
     parser.add_argument('--throughput', action='store_true', help='Test throughput only')
+    parser.add_argument('--cpu_only', action='store_true', help='Run with cpu')
 
     args, unparsed = parser.parse_known_args()
 
@@ -65,7 +66,10 @@ def parse_option():
 def run():
     args, config = parse_option()
     model = build_model(config)
-    model.cuda()
+    if args.cpu_only:
+        print(" >>>>>>>>>>>>>>> training use cpu only !")
+    else:
+        model.cuda()
     optimizer = build_optimizer(config, model)
 
     dataset_train, dataset_val, data_loader_train, data_loader_val, mixup_fn = build_loader(config)
@@ -94,12 +98,16 @@ def run():
     end = time.time()
 
     for idx in range(200):
+        print("iter >>>>>>>>>>>>>>>>>>>> ", idx)
         model.train()
         optimizer.zero_grad()
 
         samples, targets = data_loader_train_iter.__next__()
-        samples = samples.cuda()
-        targets = targets.cuda()
+        if args.cpu_only:
+            pass
+        else:
+            samples = samples.cuda()
+            targets = targets.cuda()
 
         if mixup_fn is not None:
             samples, targets = mixup_fn(samples, targets)
@@ -127,7 +135,7 @@ def run():
 
 if __name__ == '__main__':
     # run without profile >>> bash debug_with_real_data.sh
-    # run()
+    run()
 
     # run with line_profiler profile >>> bash debug_with_real_data.sh > line_profile_flow.log 2>&1
     # from line_profiler import LineProfiler
@@ -137,13 +145,13 @@ if __name__ == '__main__':
     # lp.print_stats()
 
     # run with cProfile profile >>> bash debug_with_real_data.sh > cProfile_flow.log 2>&1
-    import cProfile, pstats
-    cp = cProfile.Profile()
-    cp.enable()
-    run()
-    cp.disable()
-    stats = pstats.Stats(cp).sort_stats('cumtime')
-    stats.print_stats()
+    # import cProfile, pstats
+    # cp = cProfile.Profile()
+    # cp.enable()
+    # run()
+    # cp.disable()
+    # stats = pstats.Stats(cp).sort_stats('cumtime')
+    # stats.print_stats()
 
 
 

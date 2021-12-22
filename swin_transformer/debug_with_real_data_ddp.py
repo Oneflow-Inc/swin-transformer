@@ -98,7 +98,8 @@ if __name__ == '__main__':
     start_time = time.time()
     end = time.time()
 
-    for idx in range(20):
+    for idx in range(200):
+        print("iter >>>>>>>>>>>>>>>>>>>> ", idx)
         model.train()
         optimizer.zero_grad()
 
@@ -108,6 +109,7 @@ if __name__ == '__main__':
 
         if mixup_fn is not None:
             samples, targets = mixup_fn(samples, targets)
+
         
         outputs = model(samples)
 
