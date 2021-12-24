@@ -84,13 +84,13 @@ def main(config):
     lr_scheduler = build_scheduler(config, optimizer, len(data_loader_train))
     # lr_scheduler = flow.optim.lr_scheduler.CosineAnnealingLR(optimizer, 2)
 
-    if config.AUG.MIXUP > 0.:
-        # smoothing is handled with mixup label transform
-        criterion = SoftTargetCrossEntropy()
-    elif config.MODEL.LABEL_SMOOTHING > 0.:
-        criterion = LabelSmoothingCrossEntropy(smoothing=config.MODEL.LABEL_SMOOTHING)
-    else:
-        criterion = flow.nn.CrossEntropyLoss()
+    # if config.AUG.MIXUP > 0.:
+    #     # smoothing is handled with mixup label transform
+    #     criterion = SoftTargetCrossEntropy()
+    # elif config.MODEL.LABEL_SMOOTHING > 0.:
+    #     criterion = LabelSmoothingCrossEntropy(smoothing=config.MODEL.LABEL_SMOOTHING)
+    # else:
+    criterion = flow.nn.CrossEntropyLoss()
 
     max_accuracy = 0.0
 
@@ -153,33 +153,33 @@ def train_one_epoch(config, model, criterion, data_loader, optimizer, epoch, mix
         samples = samples.cuda()
         targets = targets.cuda()
 
-        if mixup_fn is not None:
-            samples, targets = mixup_fn(samples, targets)
+        # if mixup_fn is not None:
+        #     samples, targets = mixup_fn(samples, targets)
 
         outputs = model(samples)
 
-        if config.TRAIN.ACCUMULATION_STEPS > 1:
-            loss = criterion(outputs, targets)
-            loss = loss / config.TRAIN.ACCUMULATION_STEPS
-            loss.backward()
-            if config.TRAIN.CLIP_GRAD:
-                grad_norm = flow.nn.utils.clip_grad_norm_(model.parameters(), config.TRAIN.CLIP_GRAD)
-            else:
-                grad_norm = get_grad_norm(model.parameters())
-            if (idx + 1) % config.TRAIN.ACCUMULATION_STEPS == 0:
-                optimizer.step()
-                optimizer.zero_grad()
-                lr_scheduler.step_update(epoch * num_steps + idx)
-        else:
-            loss = criterion(outputs, targets)
-            optimizer.zero_grad()
-            loss.backward()
-            if config.TRAIN.CLIP_GRAD:
-                grad_norm = flow.nn.utils.clip_grad_norm_(model.parameters(), config.TRAIN.CLIP_GRAD)
-            else:
-                grad_norm = get_grad_norm(model.parameters())
-            optimizer.step()
-            lr_scheduler.step_update(epoch * num_steps + idx)
+        # if config.TRAIN.ACCUMULATION_STEPS > 1:
+        #     loss = criterion(outputs, targets)
+        #     loss = loss / config.TRAIN.ACCUMULATION_STEPS
+        #     loss.backward()
+        #     if config.TRAIN.CLIP_GRAD:
+        #         grad_norm = flow.nn.utils.clip_grad_norm_(model.parameters(), config.TRAIN.CLIP_GRAD)
+        #     else:
+        #         grad_norm = get_grad_norm(model.parameters())
+        #     if (idx + 1) % config.TRAIN.ACCUMULATION_STEPS == 0:
+        #         optimizer.step()
+        #         optimizer.zero_grad()
+        #         lr_scheduler.step_update(epoch * num_steps + idx)
+        # else:
+        loss = criterion(outputs, targets)
+        optimizer.zero_grad()
+        loss.backward()
+        # if config.TRAIN.CLIP_GRAD:
+        #     grad_norm = flow.nn.utils.clip_grad_norm_(model.parameters(), config.TRAIN.CLIP_GRAD)
+        # else:
+        grad_norm = get_grad_norm(model.parameters())
+        optimizer.step()
+        lr_scheduler.step_update(epoch * num_steps + idx)
 
         # flow.cuda.synchronize()
 
@@ -243,6 +243,7 @@ def validate(config, data_loader, model):
                 f'Loss {loss_meter.val:.4f} ({loss_meter.avg:.4f})\t'
                 f'Acc@1 {acc1_meter.val:.3f} ({acc1_meter.avg:.3f})\t'
                 f'Acc@5 {acc5_meter.val:.3f} ({acc5_meter.avg:.3f})\t')
+
     logger.info(f' * Acc@1 {acc1_meter.avg:.3f} Acc@5 {acc5_meter.avg:.3f}')
     return acc1_meter.avg, acc5_meter.avg, loss_meter.avg
 

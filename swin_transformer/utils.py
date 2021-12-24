@@ -77,6 +77,6 @@ def auto_resume_helper(output_dir):
 
 def reduce_tensor(tensor):
     rt = tensor.clone()
-    rt = torch.comm.all_reduce(rt)
+    torch.comm.all_reduce(rt)
     rt /= torch.env.get_world_size()
     return rt
