@@ -68,6 +68,24 @@ def build_loader(config):
     return dataset_train, dataset_val, data_loader_train, data_loader_val, mixup_fn
 
 
+# def build_dataset(is_train, config):
+#     transform = build_transform(is_train, config)
+#     if config.DATA.DATASET == 'imagenet':
+#         prefix = 'train' if is_train else 'val'
+#         if config.DATA.ZIP_MODE:
+#             ann_file = prefix + "_map.txt"
+#             prefix = prefix + ".zip@/"
+#             dataset = CachedImageFolder(config.DATA.DATA_PATH, ann_file, prefix, transform,
+#                                         cache_mode=config.DATA.CACHE_MODE if is_train else 'part')
+#         else:
+#             root = os.path.join(config.DATA.DATA_PATH, prefix)
+#             dataset = datasets.ImageFolder(root, transform=transform)
+#         nb_classes = 1000
+#     else:
+#         raise NotImplementedError("We only support ImageNet Now.")
+
+#     return dataset, nb_classes
+
 def build_dataset(is_train, config):
     transform = build_transform(is_train, config)
     if config.DATA.DATASET == 'imagenet':
@@ -81,6 +99,9 @@ def build_dataset(is_train, config):
             root = os.path.join(config.DATA.DATA_PATH, prefix)
             dataset = datasets.ImageFolder(root, transform=transform)
         nb_classes = 1000
+    elif config.DATA.DATASET == 'cifar100':
+        dataset = datasets.CIFAR100(root="./", train=is_train, transform=transform, download=True)
+        nb_classes = 100
     else:
         raise NotImplementedError("We only support ImageNet Now.")
 
