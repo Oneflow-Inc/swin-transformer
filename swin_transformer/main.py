@@ -68,6 +68,11 @@ def main(config):
 
     logger.info(f"Creating model:{config.MODEL.TYPE}/{config.MODEL.NAME}")
     model = build_model(config)
+
+    # checkpoint = flow.load("torch_init_model")
+    # msg = model.load_state_dict(checkpoint, strict=False)
+    # print("load dict: ", msg)
+
     model.cuda()
     logger.info(str(model))
 
@@ -86,11 +91,11 @@ def main(config):
 
     # if config.AUG.MIXUP > 0.:
     #     # smoothing is handled with mixup label transform
-    #     criterion = SoftTargetCrossEntropy()
+    criterion = SoftTargetCrossEntropy()
     # elif config.MODEL.LABEL_SMOOTHING > 0.:
     #     criterion = LabelSmoothingCrossEntropy(smoothing=config.MODEL.LABEL_SMOOTHING)
     # else:
-    criterion = flow.nn.CrossEntropyLoss()
+    # criterion = flow.nn.CrossEntropyLoss()
 
     max_accuracy = 0.0
 
@@ -108,14 +113,14 @@ def main(config):
 
     if config.MODEL.RESUME:
         max_accuracy = load_checkpoint(config, model_without_ddp, optimizer, lr_scheduler, logger)
-        acc1, acc5, loss = validate(config, data_loader_val, model)
-        logger.info(f"Accuracy of the network on the {len(dataset_val)} test images: {acc1:.1f}%")
-        if config.EVAL_MODE:
-            return
+        # acc1, acc5, loss = validate(config, data_loader_val, model)
+        # logger.info(f"Accuracy of the network on the {len(dataset_val)} test images: {acc1:.1f}%")
+        # if config.EVAL_MODE:
+        #     return
 
-    if config.THROUGHPUT_MODE:
-        throughput(data_loader_val, model, logger)
-        return
+    # if config.THROUGHPUT_MODE:
+    #     throughput(data_loader_val, model, logger)
+    #     return
 
     logger.info("Start training")
     start_time = time.time()
@@ -138,6 +143,16 @@ def main(config):
     logger.info('Training time {}'.format(total_time_str))
 
 
+def one_hot(x, num_classes, on_value=1.0, off_value=0.0, device="cuda"):
+    x = x.long().view(-1, 1)
+    # TODO: switch to tensor.scatter method
+    return flow.scatter(
+        flow.full((x.size()[0], num_classes), off_value, device=device),
+        dim=1,
+        index=x,
+        src=on_value,
+    )
+
 def train_one_epoch(config, model, criterion, data_loader, optimizer, epoch, mixup_fn, lr_scheduler):
     model.train()
     optimizer.zero_grad()
@@ -153,9 +168,10 @@ def train_one_epoch(config, model, criterion, data_loader, optimizer, epoch, mix
         samples = samples.cuda()
         targets = targets.cuda()
 
-        # if mixup_fn is not None:
-        #     samples, targets = mixup_fn(samples, targets)
+        if mixup_fn is not None:
+            samples, targets = mixup_fn(samples, targets)
 
+        # targets = one_hot(targets, config.MODEL.NUM_CLASSES)
         outputs = model(samples)
 
         # if config.TRAIN.ACCUMULATION_STEPS > 1:
@@ -175,9 +191,9 @@ def train_one_epoch(config, model, criterion, data_loader, optimizer, epoch, mix
         optimizer.zero_grad()
         loss.backward()
         # if config.TRAIN.CLIP_GRAD:
-        #     grad_norm = flow.nn.utils.clip_grad_norm_(model.parameters(), config.TRAIN.CLIP_GRAD)
+        grad_norm = flow.nn.utils.clip_grad_norm_(model.parameters(), config.TRAIN.CLIP_GRAD)
         # else:
-        grad_norm = get_grad_norm(model.parameters())
+        # grad_norm = get_grad_norm(model.parameters())
         optimizer.step()
         lr_scheduler.step_update(epoch * num_steps + idx)
 

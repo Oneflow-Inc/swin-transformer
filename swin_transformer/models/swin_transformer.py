@@ -17,24 +17,22 @@ model_urls = {
 }
 
 
-# class LayerNorm(nn.Module):
-#     "Construct a layernorm module (See citation for details)."
+class LayerNorm(nn.Module):
+    "Construct a layernorm module (See citation for details)."
 
-#     def __init__(self, features, eps=1e-05):
-#         super(LayerNorm, self).__init__()
-#         self.eps = eps
-#         self.weight = nn.Parameter(flow.Tensor(flow.ones(features, dtype=flow.float32)))
-#         self.bias = nn.Parameter(flow.Tensor(flow.zeros(features, dtype=flow.float32)))
-#         self.features = features
+    def __init__(self, features, eps=1e-5):
+        super(LayerNorm, self).__init__()
+        self.eps = eps
+        self.weight = nn.Parameter(flow.ones(features, dtype=flow.float32))
+        self.bias = nn.Parameter(flow.zeros(features, dtype=flow.float32))
+        self.features = features
 
-#     def forward(self, x):
-#         mean = x.mean(-1, keepdim=True)
-#         std = x.var(dim=-1, unbiased=False, keepdim=True)
-#         # return self.weight * (x - mean) / (std + self.eps) + self.bias
-#         return self.weight * (x - mean) * flow.rsqrt(std + self.eps) + self.bias
+    def forward(self, x):
+        mean = x.mean(-1, keepdim=True)
+        var = x.var(dim=-1, keepdim=True)
+        return self.weight * (x - mean) * flow.rsqrt(var + self.eps) + self.bias
 
-# nn.LayerNorm = LayerNorm
-# nn.GELU = nn.ReLU
+nn.LayerNorm = LayerNorm
 
 
 # helpers
