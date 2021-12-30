@@ -8,6 +8,7 @@
 from .swin_transformer import SwinTransformer
 from .torch_swin_transformer import SwinTransformer as torchSwin
 import oneflow as flow
+import torch
 
 def load_from_torch(model, torch_dict):
     parameters = torch_dict
@@ -57,7 +58,8 @@ def build_model(config):
         #                         use_checkpoint=config.TRAIN.USE_CHECKPOINT)
 
         # model = load_from_torch(model, torch_model.state_dict())
-        # flow.save(model.state_dict(), "torch_init_model")
+        # flow.save(model.state_dict(), "torch_swin_large_init_model_for_oneflow")
+        # torch.save(torch_model.state_dict(), "torch_swin_large_init_model.pth")
 
     else:
         raise NotImplementedError(f"Unkown model: {model_type}")
