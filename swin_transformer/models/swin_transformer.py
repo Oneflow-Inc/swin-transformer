@@ -17,6 +17,24 @@ model_urls = {
 }
 
 
+# class LayerNorm(nn.Module):
+#     "Construct a layernorm module (See citation for details)."
+
+#     def __init__(self, features, eps=1e-5):
+#         super(LayerNorm, self).__init__()
+#         self.eps = eps
+#         self.weight = nn.Parameter(flow.ones(features, dtype=flow.float32))
+#         self.bias = nn.Parameter(flow.zeros(features, dtype=flow.float32))
+#         self.features = features
+
+#     def forward(self, x):
+#         mean = x.mean(-1, keepdim=True)
+#         var = x.var(dim=-1, keepdim=True)
+#         return (x - mean) * flow.rsqrt(var + self.eps) * self.weight + self.bias
+
+# nn.LayerNorm = LayerNorm
+
+
 # helpers
 def to_2tuple(x):
     return (x, x)
@@ -637,7 +655,7 @@ class SwinTransformer(nn.Module):
         #     x for x in np.linspace(0, drop_path_rate, sum(depths))
         # ]  # stochastic depth decay rule
 
-        dpr = [x.item() for x in linspace(0, drop_path_rate, sum(depths))]  # stochastic depth decay rule
+        dpr = [x.item() for x in linspace(0, drop_path_rate, sum(depths) + 1)] # stochastic depth decay rule
         # TODO: here we use numpy, may have little difference with torch.linspace
         # dpr = [
         #     x for x in np.linspace(0, drop_path_rate, sum(depths))
