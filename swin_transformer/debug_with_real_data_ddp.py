@@ -69,11 +69,11 @@ if __name__ == '__main__':
     flow.boxing.nccl.set_fusion_threshold_mbytes(16)
     flow.boxing.nccl.set_fusion_max_ops_num(24)
 
+    dataset_train, dataset_val, data_loader_train, data_loader_val, mixup_fn = build_loader(config)
+
     model = build_model(config)
     model.cuda()
     optimizer = build_optimizer(config, model)
-
-    dataset_train, dataset_val, data_loader_train, data_loader_val, mixup_fn = build_loader(config)
 
     if config.AUG.MIXUP > 0.:
         # smoothing is handled with mixup label transform
@@ -110,10 +110,10 @@ if __name__ == '__main__':
             samples, targets = mixup_fn(samples, targets)
         
         outputs = model(samples)
-        outputs.sum().backward()
-        # loss = criterion(outputs, targets)
-        # optimizer.zero_grad()
-        # loss.backward()
+        # outputs.sum().backward()
+        loss = criterion(outputs, targets)
+        optimizer.zero_grad()
+        loss.backward()
 
         if config.TRAIN.CLIP_GRAD:
             grad_norm = flow.nn.utils.clip_grad_norm_(model.parameters(), config.TRAIN.CLIP_GRAD)

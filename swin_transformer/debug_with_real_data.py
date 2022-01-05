@@ -64,11 +64,12 @@ def parse_option():
 
 if __name__ == '__main__':
     args, config = parse_option()
+
+    dataset_train, dataset_val, data_loader_train, data_loader_val, mixup_fn = build_loader(config)
+
     model = build_model(config)
     model.cuda()
     optimizer = build_optimizer(config, model)
-
-    dataset_train, dataset_val, data_loader_train, data_loader_val, mixup_fn = build_loader(config)
 
     if config.AUG.MIXUP > 0.:
         # smoothing is handled with mixup label transform
