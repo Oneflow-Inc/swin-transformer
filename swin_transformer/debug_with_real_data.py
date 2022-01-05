@@ -75,12 +75,11 @@ if __name__ == '__main__':
     # flow.cuda.set_device(config.LOCAL_RANK)
     # flow.distributed.init_process_group(backend='nccl', init_method='env://', world_size=world_size, rank=rank)
     # flow.distributed.barrier()
+    dataset_train, dataset_val, data_loader_train, data_loader_val, mixup_fn = build_loader(config)
 
     model = build_model(config)
     model.cuda()
     optimizer = build_optimizer(config, model)
-
-    dataset_train, dataset_val, data_loader_train, data_loader_val, mixup_fn = build_loader(config)
 
     if config.AUG.MIXUP > 0.:
         # smoothing is handled with mixup label transform
