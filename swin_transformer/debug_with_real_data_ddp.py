@@ -82,11 +82,11 @@ if __name__ == '__main__':
     flow.distributed.init_process_group(backend='nccl', init_method='env://', world_size=world_size, rank=rank)
     flow.distributed.barrier()
 
+    dataset_train, dataset_val, data_loader_train, data_loader_val, mixup_fn = build_loader(config)
+
     model = build_model(config)
     model.cuda()
     optimizer = build_optimizer(config, model)
-
-    dataset_train, dataset_val, data_loader_train, data_loader_val, mixup_fn = build_loader(config)
 
     if config.AUG.MIXUP > 0.:
         # smoothing is handled with mixup label transform
@@ -122,11 +122,11 @@ if __name__ == '__main__':
             samples, targets = mixup_fn(samples, targets)
         
         outputs = model(samples)
-        outputs.sum().backward()
+        # outputs.sum().backward()
         
-        # loss = criterion(outputs, targets)
-        # optimizer.zero_grad()
-        # loss.backward()
+        loss = criterion(outputs, targets)
+        optimizer.zero_grad()
+        loss.backward()
 
         if config.TRAIN.CLIP_GRAD:
             grad_norm = flow.nn.utils.clip_grad_norm_(model.parameters(), config.TRAIN.CLIP_GRAD)
