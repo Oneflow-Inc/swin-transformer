@@ -57,7 +57,7 @@ class DropPath(nn.Module):
 def window_partition(x, window_size):
     B, H, W, C = x.shape
     x = x.view(B, H // window_size, window_size, W // window_size, window_size, C)
-    windows = x.permute(0, 1, 3, 2, 4, 5).reshape(-1, window_size, window_size, C) # x.permute().view() will check fail
+    windows = x.permute(0, 1, 3, 2, 4, 5).contiguous().view(-1, window_size, window_size, C) # x.permute().view() will check fail
     return windows
 
 
@@ -66,7 +66,7 @@ def window_reverse(windows, window_size, H, W):
     x = windows.view(
         B, H // window_size, W // window_size, window_size, window_size, -1
     )
-    x = x.permute(0, 1, 3, 2, 4, 5).reshape(B, H, W, -1) # x.permute().view() will check fail
+    x = x.permute(0, 1, 3, 2, 4, 5).contiguous().view(B, H, W, -1) # x.permute().view() will check fail
     return x
 
 
@@ -142,7 +142,7 @@ class WindowAttention(nn.Module):
         relative_coords = (
             coords_flatten[:, :, None] - coords_flatten[:, None, :]
         )  # 2, Wh*Ww, Wh*Ww
-        relative_coords = relative_coords.permute(1, 2, 0)  # Wh*Ww, Wh*Ww, 2
+        relative_coords = relative_coords.permute(1, 2, 0).contiguous()  # Wh*Ww, Wh*Ww, 2
         relative_coords[:, :, 0] = relative_coords[:, :, 0] + self.window_size[0] - 1  # shift to start from 0
         relative_coords[:, :, 1] = relative_coords[:, :, 1] + self.window_size[1] - 1
         relative_coords[:, :, 0] = relative_coords[:, :, 0] * (2 * self.window_size[1] - 1)
@@ -182,9 +182,7 @@ class WindowAttention(nn.Module):
             self.window_size[0] * self.window_size[1],
             -1,
         )  # Wh*Ww,Wh*Ww,nH
-        relative_position_bias = relative_position_bias.permute(
-            2, 0, 1
-        )  # nH, Wh*Ww, Wh*Ww
+        relative_position_bias = relative_position_bias.permute(2, 0, 1).contiguous()  # nH, Wh*Ww, Wh*Ww
         attn = attn + relative_position_bias.unsqueeze(0)
 
         if mask is not None:
