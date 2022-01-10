@@ -72,8 +72,6 @@ if __name__ == '__main__':
     dataset_train, dataset_val, data_loader_train, data_loader_val, mixup_fn = build_loader(config)
 
     model = build_model(config)
-    model.cuda()
-    optimizer = build_optimizer(config, model)
 
     if config.AUG.MIXUP > 0.:
         # smoothing is handled with mixup label transform
@@ -83,9 +81,10 @@ if __name__ == '__main__':
     else:
         criterion = flow.nn.CrossEntropyLoss()
 
+    placement = flow.placement("cuda", {0: [i for i in range(flow.env.get_world_size())]}, (2, 4),)
+    sbp = [flow.sbp.broadcast, flow.sbp.broadcast]
+    model.to_consistent(placement=placement, sbp=sbp)
     optimizer = build_optimizer(config, model)
-    model = flow.nn.parallel.DistributedDataParallel(model, broadcast_buffers=False)
-    # model_without_ddp = model
 
     # criterion = flow.nn.CrossEntropyLoss()
     data_loader_train_iter = iter(data_loader_train)
@@ -98,6 +97,9 @@ if __name__ == '__main__':
     start_time = time.time()
     end = time.time()
 
+
+    sbp = [flow.sbp.split(0), flow.sbp.split(0)]
+
     for idx in range(200):
         model.train()
         optimizer.zero_grad()
@@ -108,23 +110,26 @@ if __name__ == '__main__':
 
         if mixup_fn is not None:
             samples, targets = mixup_fn(samples, targets)
+
         
+        samples = samples.to_consistent(placement=placement, sbp=sbp)
+        targets = targets.to_consistent(placement=placement, sbp=sbp)
+
         outputs = model(samples)
-        # outputs.sum().backward()
+
         loss = criterion(outputs, targets)
         optimizer.zero_grad()
         loss.backward()
 
-        if config.TRAIN.CLIP_GRAD:
-            grad_norm = flow.nn.utils.clip_grad_norm_(model.parameters(), config.TRAIN.CLIP_GRAD)
+        # if config.TRAIN.CLIP_GRAD:
+        #     grad_norm = flow.nn.utils.clip_grad_norm_(model.parameters(), config.TRAIN.CLIP_GRAD)
         optimizer.step()
 
         # loss_meter.update(loss.item(), targets.size(0))
-        norm_meter.update(grad_norm)
+        # norm_meter.update(grad_norm)
         batch_time.update(time.time() - end)
         end = time.time()
 
-    print(outputs)
     total_time = time.time() - start_time
     total_time_str = str(datetime.timedelta(seconds=int(total_time)))
     print(total_time_str)
