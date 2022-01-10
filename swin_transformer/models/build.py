@@ -6,9 +6,9 @@
 # --------------------------------------------------------
 
 from .swin_transformer import SwinTransformer
-from .torch_swin_transformer import SwinTransformer as torchSwin
+# from .torch_swin_transformer import SwinTransformer as torchSwin
 import oneflow as flow
-import torch
+# import torch
 
 def load_from_torch(model, torch_dict):
     parameters = torch_dict

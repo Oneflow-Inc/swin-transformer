@@ -69,9 +69,9 @@ def main(config):
     logger.info(f"Creating model:{config.MODEL.TYPE}/{config.MODEL.NAME}")
     model = build_model(config)
 
-    checkpoint = flow.load("torch_swin_tiny_init_model_for_oneflow")
-    msg = model.load_state_dict(checkpoint, strict=False)
-    print("load dict: ", msg)
+    # checkpoint = flow.load("torch_swin_tiny_init_model_for_oneflow")
+    # msg = model.load_state_dict(checkpoint, strict=False)
+    # print("load dict: ", msg)
 
     model.cuda()
     logger.info(str(model))
@@ -91,11 +91,11 @@ def main(config):
 
     # if config.AUG.MIXUP > 0.:
     #     # smoothing is handled with mixup label transform
-    # criterion = SoftTargetCrossEntropy()
+    criterion = SoftTargetCrossEntropy()
     # elif config.MODEL.LABEL_SMOOTHING > 0.:
     #     criterion = LabelSmoothingCrossEntropy(smoothing=config.MODEL.LABEL_SMOOTHING)
     # else:
-    criterion = flow.nn.CrossEntropyLoss()
+    # criterion = flow.nn.CrossEntropyLoss()
 
     max_accuracy = 0.0
 
@@ -168,8 +168,8 @@ def train_one_epoch(config, model, criterion, data_loader, optimizer, epoch, mix
         samples = samples.cuda()
         targets = targets.cuda()
 
-        # if mixup_fn is not None:
-        #     samples, targets = mixup_fn(samples, targets)
+        if mixup_fn is not None:
+            samples, targets = mixup_fn(samples, targets)
 
         # targets = one_hot(targets, config.MODEL.NUM_CLASSES)
         outputs = model(samples)
@@ -191,9 +191,9 @@ def train_one_epoch(config, model, criterion, data_loader, optimizer, epoch, mix
         optimizer.zero_grad()
         loss.backward()
         # if config.TRAIN.CLIP_GRAD:
-        # grad_norm = flow.nn.utils.clip_grad_norm_(model.parameters(), config.TRAIN.CLIP_GRAD)
+        grad_norm = flow.nn.utils.clip_grad_norm_(model.parameters(), config.TRAIN.CLIP_GRAD)
         # else:
-        grad_norm = get_grad_norm(model.parameters())
+        # grad_norm = get_grad_norm(model.parameters())
         optimizer.step()
         lr_scheduler.step_update(epoch * num_steps + idx)
 
