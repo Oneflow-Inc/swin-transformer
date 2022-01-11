@@ -101,8 +101,8 @@ if __name__ == '__main__':
     # model_without_ddp = model
 
     # data_loader_train_iter = iter(data_loader_train)
-    samples = flow.ones(config.DATA.BATCH_SIZE, 3, 224, 224, dtype=flow.float32, device="cuda")
-    targets = flow.ones(config.DATA.BATCH_SIZE, 1, dtype=flow.float32, device="cuda")
+    input_image = flow.ones(config.DATA.BATCH_SIZE, 3, 224, 224, dtype=flow.float32, device="cuda")
+    input_label = flow.ones(config.DATA.BATCH_SIZE, 1, dtype=flow.float32, device="cuda")
 
     max_accuracy = 0.0
     batch_time = AverageMeter()
@@ -120,21 +120,21 @@ if __name__ == '__main__':
         # samples = samples.cuda(non_blocking=True)
         # targets = targets.cuda(non_blocking=True)
 
-        if mixup_fn is not None:
-            samples, targets = mixup_fn(samples, targets)
+        # if mixup_fn is not None:
+        #     samples, targets = mixup_fn(input_image, input_image)
         
-        outputs = model(samples)
-        # outputs.sum().backward()
+        outputs = model(input_image)
+        outputs.sum().backward()
         
-        loss = criterion(outputs, targets)
-        optimizer.zero_grad()
-        loss.backward()
+        # loss = criterion(outputs, targets)
+        # optimizer.zero_grad()
+        # loss.backward()
 
         if config.TRAIN.CLIP_GRAD:
             grad_norm = flow.nn.utils.clip_grad_norm_(model.parameters(), config.TRAIN.CLIP_GRAD)
         optimizer.step()
 
-        flow.cuda.synchronize()
+        # flow.cuda.synchronize()
         # loss_meter.update(loss.item(), targets.size(0))
         norm_meter.update(grad_norm)
         batch_time.update(time.time() - end)
