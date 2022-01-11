@@ -120,10 +120,10 @@ if __name__ == '__main__':
         # samples = samples.cuda(non_blocking=True)
         # targets = targets.cuda(non_blocking=True)
 
-        # if mixup_fn is not None:
-        #     samples, targets = mixup_fn(input_image, input_image)
+        if mixup_fn is not None:
+            samples, targets = mixup_fn(input_image, input_label)
         
-        outputs = model(input_image)
+        outputs = model(samples)
         outputs.sum().backward()
         
         # loss = criterion(outputs, targets)
