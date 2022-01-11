@@ -108,10 +108,10 @@ if __name__ == '__main__':
         # samples = samples.cuda()
         # targets = targets.cuda()
 
-        if mixup_fn is not None:
-            samples, targets = mixup_fn(input_image, input_label)
+        # if mixup_fn is not None:
+        #     samples, targets = mixup_fn(input_image, input_label)
         
-        outputs = model(samples)
+        outputs = model(input_image)
         outputs.sum().backward()
         # loss = criterion(outputs, targets)
         # optimizer.zero_grad()
