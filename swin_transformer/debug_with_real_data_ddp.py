@@ -20,11 +20,10 @@ from flowvision.utils.metrics import accuracy, AverageMeter
 
 from config import get_config
 from models import build_model
+from models.graph import TrainGraph, EvalGraph
 from data import build_loader
-# from lr_scheduler import build_scheduler
 from optimizer import build_optimizer
-# from logger import create_logger
-# from utils import load_checkpoint, save_checkpoint, get_grad_norm, auto_resume_helper, reduce_tensor
+from lr_scheduler import build_scheduler
 
 
 def parse_option():
@@ -79,13 +78,20 @@ if __name__ == '__main__':
     else:
         criterion = flow.nn.CrossEntropyLoss()
 
-    placement = flow.placement("cuda", {0: [i for i in range(flow.env.get_world_size())]}, (2, 4),)
-    sbp = [flow.sbp.broadcast, flow.sbp.broadcast]
-    # placement = flow.env.all_device_placement("cuda")
-    # sbp = flow.sbp.broadcast
+    # placement = flow.placement("cuda", {0: [i for i in range(flow.env.get_world_size())]}, (2, 4),)
+    # sbp = [flow.sbp.broadcast, flow.sbp.broadcast]
+    placement = flow.env.all_device_placement("cuda")
+    sbp = flow.sbp.broadcast
     
     model.to_consistent(placement=placement, sbp=sbp)
     optimizer = build_optimizer(config, model)
+    # lr_scheduler = build_scheduler(config, optimizer, len(data_loader_train))
+    lr_scheduler = flow.optim.lr_scheduler.CosineAnnealingLR(optimizer, 2)
+
+    train_graph = TrainGraph(model=model,
+                             loss_fn=criterion,
+                             optimizer=optimizer,
+                             lr_scheduler=lr_scheduler)
 
     data_loader_train_iter = iter(data_loader_train)
 
@@ -98,8 +104,8 @@ if __name__ == '__main__':
     end = time.time()
 
 
-    sbp = [flow.sbp.split(0), flow.sbp.split(0)]
-    # sbp = flow.sbp.split(0)
+    # sbp = [flow.sbp.split(0), flow.sbp.split(0)]
+    sbp = flow.sbp.split(0)
 
     for idx in range(200):
         model.train()
@@ -116,15 +122,15 @@ if __name__ == '__main__':
         samples = samples.to_consistent(placement=placement, sbp=sbp)
         targets = targets.to_consistent(placement=placement, sbp=sbp)
 
-        outputs = model(samples)
+        loss = train_graph(samples, targets)
 
-        loss = criterion(outputs, targets)
-        optimizer.zero_grad()
-        loss.backward()
+        # loss = criterion(outputs, targets)
+        # optimizer.zero_grad()
+        # loss.backward()
 
-        # if config.TRAIN.CLIP_GRAD:
-        #     grad_norm = flow.nn.utils.clip_grad_norm_(model.parameters(), config.TRAIN.CLIP_GRAD)
-        optimizer.step()
+        # # if config.TRAIN.CLIP_GRAD:
+        # #     grad_norm = flow.nn.utils.clip_grad_norm_(model.parameters(), config.TRAIN.CLIP_GRAD)
+        # optimizer.step()
 
         # loss_meter.update(loss.item(), targets.size(0))
         # norm_meter.update(grad_norm)

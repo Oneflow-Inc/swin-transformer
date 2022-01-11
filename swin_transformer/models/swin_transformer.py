@@ -203,7 +203,7 @@ class WindowAttention(nn.Module):
         self.fused_bias_add_dropout=fused_bias_add_dropout
         self.p = proj_drop
 
-    def forward(self, x, mask=None):
+    def forward(self, x, mask):
         """
         Args:
             x: input features with shape of (num_windows*B, N, C)
@@ -388,7 +388,7 @@ class SwinTransformerBlock(nn.Module):
 
         # W-MSA/SW-MSA
         attn_windows = self.attn(
-            x_windows, mask=self.attn_mask
+            x_windows, self.attn_mask
         )  # nW*B, window_size*window_size, C
 
         # merge windows
@@ -664,7 +664,8 @@ class SwinTransformer(nn.Module):
         self.pos_drop = nn.Dropout(p=drop_rate)
 
         # stochastic depth
-        dpr = [x.item() for x in flow.linspace(0, drop_path_rate, sum(depths))] # stochastic depth decay rule
+        # dpr = [x.item() for x in flow.linspace(0, drop_path_rate, sum(depths))] # stochastic depth decay rule
+        dpr = [0.0 for x in range(sum(depths))]
 
         # build layers
         self.layers = nn.ModuleList()
