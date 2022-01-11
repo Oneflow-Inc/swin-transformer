@@ -88,7 +88,9 @@ if __name__ == '__main__':
     # model_without_ddp = model
 
     # criterion = flow.nn.CrossEntropyLoss()
-    data_loader_train_iter = iter(data_loader_train)
+    # data_loader_train_iter = iter(data_loader_train)
+    input_image = flow.ones(config.DATA.BATCH_SIZE, 3, 224, 224, dtype=flow.float32, device="cuda")
+    input_label = flow.ones(config.DATA.BATCH_SIZE, 1, dtype=flow.float32, device="cuda")
 
     batch_time = AverageMeter()
     loss_meter = AverageMeter()
@@ -102,12 +104,12 @@ if __name__ == '__main__':
         model.train()
         optimizer.zero_grad()
 
-        samples, targets = data_loader_train_iter.__next__()
-        samples = samples.cuda()
-        targets = targets.cuda()
+        # samples, targets = data_loader_train_iter.__next__()
+        # samples = samples.cuda()
+        # targets = targets.cuda()
 
         if mixup_fn is not None:
-            samples, targets = mixup_fn(samples, targets)
+            samples, targets = mixup_fn(input_image, input_label)
         
         outputs = model(samples)
         outputs.sum().backward()
