@@ -100,7 +100,9 @@ if __name__ == '__main__':
     model = flow.nn.parallel.DistributedDataParallel(model, broadcast_buffers=False)
     # model_without_ddp = model
 
-    data_loader_train_iter = iter(data_loader_train)
+    # data_loader_train_iter = iter(data_loader_train)
+    samples = flow.ones(config.DATA.BATCH_SIZE, 3, 224, 224, dtype=flow.float32, device="cuda")
+    targets = flow.ones(config.DATA.BATCH_SIZE, 1, dtype=flow.float32, device="cuda")
 
     max_accuracy = 0.0
     batch_time = AverageMeter()
@@ -114,9 +116,9 @@ if __name__ == '__main__':
         model.train()
         optimizer.zero_grad()
 
-        samples, targets = data_loader_train_iter.__next__()
-        samples = samples.cuda(non_blocking=True)
-        targets = targets.cuda(non_blocking=True)
+        # samples, targets = data_loader_train_iter.__next__()
+        # samples = samples.cuda(non_blocking=True)
+        # targets = targets.cuda(non_blocking=True)
 
         if mixup_fn is not None:
             samples, targets = mixup_fn(samples, targets)
