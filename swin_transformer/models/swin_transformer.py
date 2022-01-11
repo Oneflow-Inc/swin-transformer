@@ -2,7 +2,6 @@ import oneflow as flow
 import oneflow.nn as nn
 import oneflow.nn.functional as F
 import numpy as np
-from .linspace import linspace_op as linspace
 
 # Note that model with `in22k` means pretrained weight on imagenet22k dataset
 model_urls = {
@@ -637,7 +636,7 @@ class SwinTransformer(nn.Module):
         #     x for x in np.linspace(0, drop_path_rate, sum(depths))
         # ]  # stochastic depth decay rule
 
-        dpr = [x.item() for x in linspace(0, drop_path_rate, sum(depths))]  # stochastic depth decay rule
+        dpr = [x.item() for x in flow.linspace(0, drop_path_rate, sum(depths))]  # stochastic depth decay rule
         # TODO: here we use numpy, may have little difference with torch.linspace
         # dpr = [
         #     x for x in np.linspace(0, drop_path_rate, sum(depths))
