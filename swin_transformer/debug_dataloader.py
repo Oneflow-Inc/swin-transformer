@@ -104,13 +104,13 @@ if __name__ == '__main__':
     # input_image = flow.ones(config.DATA.BATCH_SIZE, 3, 224, 224, dtype=flow.float32, device="cuda")
     # input_label = flow.ones(config.DATA.BATCH_SIZE, 1, dtype=flow.float32, device="cuda")
 
-    max_accuracy = 0.0
-    batch_time = AverageMeter()
-    loss_meter = AverageMeter()
-    norm_meter = AverageMeter()
+    # max_accuracy = 0.0
+    # batch_time = AverageMeter()
+    # loss_meter = AverageMeter()
+    # norm_meter = AverageMeter()
 
     start = time.time()
-    end = time.time()
+    # end = time.time()
 
     for idx in range(200):
         # model.train()
