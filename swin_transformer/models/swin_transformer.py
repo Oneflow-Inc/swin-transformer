@@ -4,8 +4,6 @@ import oneflow.nn as nn
 import math
 import warnings
 
-import numpy as np
-
 def _no_grad_trunc_normal_(tensor, mean, std, a, b):
     # Cut & paste from PyTorch official master until it's in a few official releases - RW
     # Method based on https://people.sc.fsu.edu/~jburkardt/presentations/truncated_normal.pdf
@@ -666,15 +664,7 @@ class SwinTransformer(nn.Module):
         self.pos_drop = nn.Dropout(p=drop_rate)
 
         # stochastic depth
-        # dpr = [
-        #     x for x in np.linspace(0, drop_path_rate, sum(depths))
-        # ]  # stochastic depth decay rule
-
-        # dpr = [x.item() for x in flow.linspace(0, drop_path_rate, sum(depths))] # stochastic depth decay rule
-        # TODO: here we use numpy, may have little difference with torch.linspace
-        dpr = [
-            x for x in np.linspace(0, drop_path_rate, sum(depths))
-        ]  # stochastic depth decay rule
+        dpr = [x.item() for x in flow.linspace(0, drop_path_rate, sum(depths))] # stochastic depth decay rule
 
         # build layers
         self.layers = nn.ModuleList()
