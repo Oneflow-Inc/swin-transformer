@@ -26,19 +26,19 @@ def _no_grad_trunc_normal_(tensor, mean, std, a, b):
         # Uniformly fill tensor with values from [l, u], then translate to
         # [2l-1, 2u-1].
         tensor.uniform_(2 * l - 1, 2 * u - 1)
-        tensor_cuda = tensor.cuda()
-        # Use inverse cdf transform for normal distribution to get truncated
-        # standard normal
-        # TODO(Liang Depeng): cpu implementaion of erfinv has bug, needed to be fixed.
-        tensor_cuda.erfinv_()
+        # tensor_cuda = tensor.cuda()
+        # # Use inverse cdf transform for normal distribution to get truncated
+        # # standard normal
+        # # TODO(Liang Depeng): cpu implementaion of erfinv has bug, needed to be fixed.
+        # tensor_cuda.erfinv_()
 
-        # # Transform to proper mean, std
-        tensor_cuda.mul_(std * math.sqrt(2.))
-        tensor_cuda.add_(mean)
+        # # # Transform to proper mean, std
+        # tensor_cuda.mul_(std * math.sqrt(2.))
+        # tensor_cuda.add_(mean)
 
-        # # Clamp to ensure it's in the proper range
-        tensor_cuda.clamp_(min=a, max=b)
-        tensor[:] = tensor_cuda.cpu()
+        # # # Clamp to ensure it's in the proper range
+        # tensor_cuda.clamp_(min=a, max=b)
+        # tensor[:] = tensor_cuda.cpu()
         return tensor
 
 def trunc_normal_(tensor, mean=0., std=1., a=-2., b=2.):
@@ -313,7 +313,7 @@ class SwinTransformerBlock(nn.Module):
             qk_scale=qk_scale,
             attn_drop=attn_drop,
             proj_drop=drop,
-            fused_bias_add_dropout=True,
+            fused_bias_add_dropout=False,
         )
 
         self.drop_path = DropPath(drop_path) if drop_path > 0.0 else nn.Identity()
@@ -324,8 +324,8 @@ class SwinTransformerBlock(nn.Module):
             hidden_features=mlp_hidden_dim,
             act_layer=act_layer,
             drop=drop,
-            fused_gelu=True,
-            fused_bias_add_dropout=True,
+            fused_gelu=False,
+            fused_bias_add_dropout=False,
         )
 
         if self.shift_size > 0:
