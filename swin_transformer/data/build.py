@@ -32,9 +32,11 @@ def build_loader(config):
     num_tasks = torch.env.get_world_size()
     global_rank = torch.env.get_rank()
     if config.DATA.ZIP_MODE and config.DATA.CACHE_MODE == 'part':
+        print("build_sampler >>>>>> SubsetRandomSampler")
         indices = np.arange(torch.env.get_rank(), len(dataset_train), torch.env.get_world_size())
         sampler_train = SubsetRandomSampler(indices)
     else:
+        print("build_sampler >>>>>> DistributedSampler")
         sampler_train = torch.utils.data.DistributedSampler(
             dataset_train, num_replicas=num_tasks, rank=global_rank, shuffle=True
         )
@@ -73,11 +75,13 @@ def build_dataset(is_train, config):
     if config.DATA.DATASET == 'imagenet':
         prefix = 'train' if is_train else 'val'
         if config.DATA.ZIP_MODE:
+            print("build_dataset >>>>>> CachedImageFolder")
             ann_file = prefix + "_map.txt"
             prefix = prefix + ".zip@/"
             dataset = CachedImageFolder(config.DATA.DATA_PATH, ann_file, prefix, transform,
                                         cache_mode=config.DATA.CACHE_MODE if is_train else 'part')
         else:
+            print("build_dataset >>>>>> ImageFolder")
             root = os.path.join(config.DATA.DATA_PATH, prefix)
             dataset = datasets.ImageFolder(root, transform=transform)
         nb_classes = 1000
