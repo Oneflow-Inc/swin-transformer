@@ -231,7 +231,11 @@ class WindowAttention(nn.Module):
         relative_position_bias = relative_position_bias.permute(
             2, 0, 1
         )  # nH, Wh*Ww, Wh*Ww
-        attn = attn + relative_position_bias.unsqueeze(0)
+        print("before: ", relative_position_bias.sbp)
+        unsqueeze_relative_position_bias = relative_position_bias.unsqueeze(0)
+        print("after: ", unsqueeze_relative_position_bias.sbp)
+        unsqueeze_relative_position_bias = unsqueeze_relative_position_bias.to_consistent(grad_sbp=unsqueeze_relative_position_bias.sbp)
+        attn = attn + unsqueeze_relative_position_bias
 
         if mask is not None:
             nW = mask.shape[0]
