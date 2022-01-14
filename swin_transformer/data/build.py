@@ -101,10 +101,10 @@ def build_transform(is_train, config):
             re_count=config.AUG.RECOUNT,
             interpolation=config.DATA.INTERPOLATION,
         )
-        if not resize_im:
+        # if not resize_im:
             # replace RandomResizedCropAndInterpolation with
             # RandomCrop
-            transform.transforms[0] = transforms.RandomCrop(config.DATA.IMG_SIZE, padding=4)
+            # transform.transforms[0] = transforms.RandomCrop(config.DATA.IMG_SIZE, padding=4)
         return transform
 
     t = []
@@ -115,7 +115,7 @@ def build_transform(is_train, config):
                 transforms.Resize(size, interpolation=str_to_interp_mode(config.DATA.INTERPOLATION)),
                 # to maintain same ratio w.r.t. 224 images
             )
-            t.append(transforms.CenterCrop(config.DATA.IMG_SIZE))
+            # t.append(transforms.CenterCrop(config.DATA.IMG_SIZE))
         else:
             t.append(
                 transforms.Resize((config.DATA.IMG_SIZE, config.DATA.IMG_SIZE),
@@ -123,5 +123,5 @@ def build_transform(is_train, config):
             )
 
     t.append(transforms.ToTensor())
-    t.append(transforms.Normalize(IMAGENET_DEFAULT_MEAN, IMAGENET_DEFAULT_STD))
+    # t.append(transforms.Normalize(IMAGENET_DEFAULT_MEAN, IMAGENET_DEFAULT_STD))
     return transforms.Compose(t)
