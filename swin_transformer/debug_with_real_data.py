@@ -93,7 +93,7 @@ if __name__ == '__main__':
     start_time = time.time()
     end = time.time()
 
-    for idx in range(30):
+    for idx in range(200):
         model.train()
         optimizer.zero_grad()
 
