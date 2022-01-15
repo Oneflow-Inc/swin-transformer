@@ -93,6 +93,7 @@ if __name__ == '__main__':
     start_time = time.time()
     end = time.time()
 
+    flow._oneflow_internal.profiler.RangePush('no numpy train begin')
     for idx in range(200):
         model.train()
         optimizer.zero_grad()
@@ -101,9 +102,11 @@ if __name__ == '__main__':
         samples = samples.cuda()
         targets = targets.cuda()
 
+        # targets = targets.unsqueeze(1)
+        # targets = targets.expand(-1, 1000)
         if mixup_fn is not None:
             samples, targets = mixup_fn(samples, targets)
-        
+
         outputs = model(samples)
         # output.sum().backward()
         loss = criterion(outputs, targets)
@@ -114,11 +117,12 @@ if __name__ == '__main__':
             grad_norm = flow.nn.utils.clip_grad_norm_(model.parameters(), config.TRAIN.CLIP_GRAD)
         optimizer.step()
 
-        loss_meter.update(loss.item(), targets.size(0))
+        # loss_meter.update(loss.item(), targets.size(0))
         norm_meter.update(grad_norm)
         batch_time.update(time.time() - end)
         end = time.time()
 
+    flow._oneflow_internal.profiler.RangePop()
     print(outputs)
     total_time = time.time() - start_time
     total_time_str = str(datetime.timedelta(seconds=int(total_time)))

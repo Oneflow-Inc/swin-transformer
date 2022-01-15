@@ -110,10 +110,10 @@ if __name__ == '__main__':
             samples, targets = mixup_fn(samples, targets)
         
         outputs = model(samples)
-        outputs.sum().backward()
-        # loss = criterion(outputs, targets)
-        # optimizer.zero_grad()
-        # loss.backward()
+        # outputs.sum().backward()
+        loss = criterion(outputs, targets)
+        optimizer.zero_grad()
+        loss.backward()
 
         if config.TRAIN.CLIP_GRAD:
             grad_norm = flow.nn.utils.clip_grad_norm_(model.parameters(), config.TRAIN.CLIP_GRAD)
