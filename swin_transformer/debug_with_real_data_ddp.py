@@ -119,15 +119,13 @@ if __name__ == '__main__':
 
         # loss_meter.update(loss.item(), targets.size(0))
         norm_meter.update(grad_norm)
-        batch_time.update(time.time() - end)
-        end = time.time()
     print(loss)
 
     max_accuracy = 0.0
     start_time = time.time()
     end = time.time()
 
-    
+    flow._oneflow_internal.profiler.RangePush('oneflow ddp train begin with fake data')
     for idx in range(30):
         model.train()
         optimizer.zero_grad()
@@ -153,7 +151,7 @@ if __name__ == '__main__':
         norm_meter.update(grad_norm)
         batch_time.update(time.time() - end)
         end = time.time()
-
+    flow._oneflow_internal.profiler.RangePop()
     print(outputs)
     total_time = time.time() - start_time
     total_time_str = str(datetime.timedelta(seconds=int(total_time)))
