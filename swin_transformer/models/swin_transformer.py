@@ -231,10 +231,9 @@ class WindowAttention(nn.Module):
         relative_position_bias = relative_position_bias.permute(
             2, 0, 1
         )  # nH, Wh*Ww, Wh*Ww
-        # print("before: ", relative_position_bias.sbp)
         unsqueeze_relative_position_bias = relative_position_bias.unsqueeze(0)
-        # print("after: ", unsqueeze_relative_position_bias.sbp)
-        # unsqueeze_relative_position_bias = unsqueeze_relative_position_bias.to_consistent(grad_sbp=unsqueeze_relative_position_bias.sbp)
+        unsqueeze_relative_position_bias = unsqueeze_relative_position_bias.to_consistent(grad_sbp=unsqueeze_relative_position_bias.sbp)
+        unsqueeze_relative_position_bias = unsqueeze_relative_position_bias.to_consistent(grad_sbp=(flow.sbp.broadcast, flow.sbp.broadcast))
         attn = attn + unsqueeze_relative_position_bias
 
         if mask is not None:
@@ -242,9 +241,7 @@ class WindowAttention(nn.Module):
             attn = attn.view(B_ // nW, nW, self.num_heads, N, N) + mask.unsqueeze(
                 1
             ).unsqueeze(0)
-            # print("?????????????????????????????????????????????")
-            # print(attn.shape, attn.sbp)
-            # attn = attn.to_consistent(sbp=(flow.sbp.split(0), flow.sbp.split(0)))
+            attn = attn.to_consistent(sbp=(flow.sbp.split(0), flow.sbp.split(0)))
             attn = attn.view(-1, self.num_heads, N, N)
             attn = self.softmax(attn)
         else:
