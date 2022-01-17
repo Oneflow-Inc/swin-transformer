@@ -69,10 +69,6 @@ def main(config):
     logger.info(f"Creating model:{config.MODEL.TYPE}/{config.MODEL.NAME}")
     model = build_model(config)
 
-    # checkpoint = flow.load("torch_swin_tiny_init_model_for_oneflow")
-    # msg = model.load_state_dict(checkpoint, strict=False)
-    # print("load dict: ", msg)
-
     model.cuda()
     logger.info(str(model))
 
@@ -87,7 +83,6 @@ def main(config):
         logger.info(f"number of GFLOPs: {flops / 1e9}")
 
     lr_scheduler = build_scheduler(config, optimizer, len(data_loader_train))
-    # lr_scheduler = flow.optim.lr_scheduler.CosineAnnealingLR(optimizer, 2)
 
     # if config.AUG.MIXUP > 0.:
     #     # smoothing is handled with mixup label transform
@@ -143,16 +138,6 @@ def main(config):
     logger.info('Training time {}'.format(total_time_str))
 
 
-def one_hot(x, num_classes, on_value=1.0, off_value=0.0, device="cuda"):
-    x = x.long().view(-1, 1)
-    # TODO: switch to tensor.scatter method
-    return flow.scatter(
-        flow.full((x.size()[0], num_classes), off_value, device=device),
-        dim=1,
-        index=x,
-        src=on_value,
-    )
-
 def train_one_epoch(config, model, criterion, data_loader, optimizer, epoch, mixup_fn, lr_scheduler):
     model.train()
     optimizer.zero_grad()
@@ -171,7 +156,6 @@ def train_one_epoch(config, model, criterion, data_loader, optimizer, epoch, mix
         if mixup_fn is not None:
             samples, targets = mixup_fn(samples, targets)
 
-        # targets = one_hot(targets, config.MODEL.NUM_CLASSES)
         outputs = model(samples)
 
         # if config.TRAIN.ACCUMULATION_STEPS > 1:
@@ -196,8 +180,6 @@ def train_one_epoch(config, model, criterion, data_loader, optimizer, epoch, mix
         # grad_norm = get_grad_norm(model.parameters())
         optimizer.step()
         lr_scheduler.step_update(epoch * num_steps + idx)
-
-        # flow.cuda.synchronize()
 
         loss_meter.update(loss.item(), targets.size(0))
         norm_meter.update(grad_norm)
