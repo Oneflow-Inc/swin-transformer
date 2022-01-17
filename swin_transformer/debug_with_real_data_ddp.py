@@ -95,10 +95,36 @@ if __name__ == '__main__':
     norm_meter = AverageMeter()
 
     max_accuracy = 0.0
+    
+    for idx in range(5):
+        model.train()
+        optimizer.zero_grad()
+
+        samples, targets = data_loader_train_iter.__next__()
+        samples = samples.cuda()
+        targets = targets.cuda()
+
+        if mixup_fn is not None:
+            samples, targets = mixup_fn(samples, targets)
+        
+        outputs = model(samples)
+        # outputs.sum().backward()
+        loss = criterion(outputs, targets)
+        optimizer.zero_grad()
+        loss.backward()
+
+        if config.TRAIN.CLIP_GRAD:
+            grad_norm = flow.nn.utils.clip_grad_norm_(model.parameters(), config.TRAIN.CLIP_GRAD)
+        optimizer.step()
+
+        # loss_meter.update(loss.item(), targets.size(0))
+        norm_meter.update(grad_norm)
+    print(loss)
+
     start_time = time.time()
     end = time.time()
-
-    for idx in range(200):
+    flow._oneflow_internal.profiler.RangePush('oneflow ddp train begin')
+    for idx in range(30):
         model.train()
         optimizer.zero_grad()
 
@@ -123,7 +149,7 @@ if __name__ == '__main__':
         norm_meter.update(grad_norm)
         batch_time.update(time.time() - end)
         end = time.time()
-
+    flow._oneflow_internal.profiler.RangePop()
     print(outputs)
     total_time = time.time() - start_time
     total_time_str = str(datetime.timedelta(seconds=int(total_time)))
