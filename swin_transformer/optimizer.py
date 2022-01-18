@@ -7,8 +7,7 @@
 
 from oneflow import optim as optim
 
-
-def build_optimizer(config, model):
+def build_optimizer(config, model, graph_mode=False):
     """
     Build optimizer, set weight decay of normalization to 0 by default.
     """
@@ -20,6 +19,11 @@ def build_optimizer(config, model):
         skip_keywords = model.no_weight_decay_keywords()
     # FIXME: weight decay on pos embed
     parameters = set_weight_decay(model, {'absolute_pos_embed'}, {'relative_position_bias_table'})
+
+    if config.TRAIN.CLIP_GRAD == 1.0:
+        for param_group in parameters:
+            param_group["clip_grad_max_norm"] = (1.0,)
+            param_group["clip_grad_norm_type"] = (2.0,)
 
     opt_lower = config.TRAIN.OPTIMIZER.NAME.lower()
     optimizer = None

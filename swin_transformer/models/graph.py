@@ -1,5 +1,13 @@
 import oneflow as flow
 
+def make_grad_scaler():
+    return flow.amp.GradScaler(
+        init_scale=2 ** 30, growth_factor=2.0, backoff_factor=0.5, growth_interval=2000,
+    )
+
+def make_static_grad_scaler():
+    return flow.amp.StaticGradScaler(flow.env.get_world_size())
+
 class TrainGraph(flow.nn.Graph):
     def __init__(self, model, loss_fn, optimizer, lr_scheduler):
         super().__init__()

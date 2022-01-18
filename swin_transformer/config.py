@@ -99,6 +99,7 @@ _C.TRAIN.WARMUP_LR = 5e-7
 _C.TRAIN.MIN_LR = 5e-6
 # Clip gradient norm
 _C.TRAIN.CLIP_GRAD = 5.0
+# _C.TRAIN.CLIP_GRAD = 1.0
 # Auto resume from latest checkpoint
 _C.TRAIN.AUTO_RESUME = False
 # Gradient accumulation steps
