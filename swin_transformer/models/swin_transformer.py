@@ -232,8 +232,6 @@ class WindowAttention(nn.Module):
             2, 0, 1
         )  # nH, Wh*Ww, Wh*Ww
         unsqueeze_relative_position_bias = relative_position_bias.unsqueeze(0)
-        unsqueeze_relative_position_bias = unsqueeze_relative_position_bias.to_consistent(grad_sbp=unsqueeze_relative_position_bias.sbp)
-        unsqueeze_relative_position_bias = unsqueeze_relative_position_bias.to_consistent(grad_sbp=(flow.sbp.broadcast, flow.sbp.broadcast))
         attn = attn + unsqueeze_relative_position_bias
 
         if mask is not None:
@@ -241,7 +239,6 @@ class WindowAttention(nn.Module):
             attn = attn.view(B_ // nW, nW, self.num_heads, N, N) + mask.unsqueeze(
                 1
             ).unsqueeze(0)
-            attn = attn.to_consistent(sbp=(flow.sbp.split(0), flow.sbp.split(0)))
             attn = attn.view(-1, self.num_heads, N, N)
             attn = self.softmax(attn)
         else:
@@ -668,8 +665,7 @@ class SwinTransformer(nn.Module):
         self.pos_drop = nn.Dropout(p=drop_rate)
 
         # stochastic depth
-        # dpr = [x.item() for x in flow.linspace(0, drop_path_rate, sum(depths))] # stochastic depth decay rule
-        dpr = [0.0 for x in range(sum(depths))]
+        dpr = [x.item() for x in flow.linspace(0, drop_path_rate, sum(depths))] # stochastic depth decay rule
 
         # build layers
         self.layers = nn.ModuleList()
