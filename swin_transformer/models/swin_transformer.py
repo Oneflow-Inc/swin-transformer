@@ -4,7 +4,7 @@ import oneflow.nn as nn
 import math
 import warnings
 
-from flowvision.layers import trunc_normal_
+from flowvision.layers.weight_init import trunc_normal_
 
 # helpers
 def to_2tuple(x):
