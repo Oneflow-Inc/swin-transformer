@@ -4,7 +4,7 @@
 # Licensed under The MIT License [see LICENSE for details]
 # Written by Ze Liu
 # --------------------------------------------------------
-
+import gc
 import os
 import time
 import argparse
@@ -125,8 +125,12 @@ def run():
         loss_meter.update(loss.item(), targets.size(0))
         if config.TRAIN.CLIP_GRAD:
             norm_meter.update(grad_norm)
+        
+        # force use gc collects
+        # gc.collect()
         batch_time.update(time.time() - end)
         end = time.time()
+    
 
     print(outputs)
     total_time = time.time() - start_time
@@ -135,6 +139,8 @@ def run():
 
 if __name__ == '__main__':
     # run without profile >>> bash debug_with_real_data.sh
+
+    gc.disable()
     run()
 
     # run with line_profiler profile >>> bash debug_with_real_data.sh > line_profile_flow.log 2>&1
