@@ -97,7 +97,7 @@ def run():
     start_time = time.time()
     end = time.time()
 
-    for idx in range(200):
+    for idx in range(30):
         print("iter >>>>>>>>>>>>>>>>>>>> ", idx)
         model.train()
         optimizer.zero_grad()
@@ -140,7 +140,7 @@ def run():
 if __name__ == '__main__':
     # run without profile >>> bash debug_with_real_data.sh
 
-    gc.disable()
+    # gc.disable()
     run()
 
     # run with line_profiler profile >>> bash debug_with_real_data.sh > line_profile_flow.log 2>&1
