@@ -45,7 +45,7 @@ def save_checkpoint(config, epoch, model, max_accuracy, optimizer, lr_scheduler,
 
     save_path = os.path.join(config.OUTPUT, f'model_{epoch}')
     logger.info(f"{save_path} saving......")
-    torch.save(save_state, save_path)
+    torch.save(save_state, save_path, consistent_dst_rank=0)
     logger.info(f"{save_path} saved !!!")
 
 
