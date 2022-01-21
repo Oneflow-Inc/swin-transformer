@@ -70,8 +70,11 @@ def main(config):
     model = build_model(config)
     model_without_ddp = model
     logger.info(str(model))
-    placement = flow.env.all_device_placement("cuda")
-    sbp = flow.sbp.broadcast
+    
+    placement = flow.placement("cuda", {0: [i for i in range(flow.env.get_world_size())]}, (2, 4),)
+    sbp = [flow.sbp.broadcast, flow.sbp.broadcast]
+    # placement = flow.env.all_device_placement("cuda")
+    # sbp = flow.sbp.broadcast
     model.to_consistent(placement=placement, sbp=sbp)
 
     optimizer = build_optimizer(config, model)
@@ -79,6 +82,9 @@ def main(config):
     n_parameters = sum(p.numel() for p in model.parameters() if p.requires_grad)
     logger.info(f"number of params: {n_parameters}")
     lr_scheduler = build_scheduler(config, optimizer, len(data_loader_train))
+
+    if config.MODEL.RESUME:
+        max_accuracy = load_checkpoint(config, model_without_ddp, optimizer, lr_scheduler, logger)
 
     # if config.AUG.MIXUP > 0.:
     #     # smoothing is handled with mixup label transform
@@ -90,20 +96,6 @@ def main(config):
 
     max_accuracy = 0.0
 
-    if config.TRAIN.AUTO_RESUME:
-        resume_file = auto_resume_helper(config.OUTPUT)
-        if resume_file:
-            if config.MODEL.RESUME:
-                logger.warning(f"auto-resume changing resume file from {config.MODEL.RESUME} to {resume_file}")
-            config.defrost()
-            config.MODEL.RESUME = resume_file
-            config.freeze()
-            logger.info(f'auto resuming from {resume_file}')
-        else:
-            logger.info(f'no checkpoint found in {config.OUTPUT}, ignoring auto resume')
-
-    if config.MODEL.RESUME:
-        max_accuracy = load_checkpoint(config, model_without_ddp, optimizer, lr_scheduler, logger)
         # acc1, acc5, loss = validate(config, data_loader_val, model)
         # logger.info(f"Accuracy of the network on the {len(dataset_val)} test images: {acc1:.1f}%")
         # if config.EVAL_MODE:
@@ -143,6 +135,13 @@ def train_one_epoch(config, model, criterion, data_loader, optimizer, epoch, mix
     loss_meter = AverageMeter()
     norm_meter = AverageMeter()
 
+    placement = flow.placement("cuda", {0: [i for i in range(flow.env.get_world_size())]}, (2, 4),)
+    split_sbp = [flow.sbp.split(0), flow.sbp.split(0)]
+    broadcast_sbp = [flow.sbp.broadcast, flow.sbp.broadcast]
+    # placement = flow.env.all_device_placement("cuda")
+    # split_sbp = flow.sbp.split(0)
+    # broadcast_sbp = flow.sbp.broadcast
+
     start = time.time()
     end = time.time()
     for idx, (samples, targets) in enumerate(data_loader):
@@ -152,8 +151,8 @@ def train_one_epoch(config, model, criterion, data_loader, optimizer, epoch, mix
         if mixup_fn is not None:
             samples, targets = mixup_fn(samples, targets)
         
-        samples = samples.to_consistent(placement=flow.env.all_device_placement("cuda"), sbp=flow.sbp.split(0))
-        targets = targets.to_consistent(placement=flow.env.all_device_placement("cuda"), sbp=flow.sbp.split(0))
+        samples = samples.to_consistent(placement=placement, sbp=split_sbp)
+        targets = targets.to_consistent(placement=placement, sbp=split_sbp)
 
         outputs = model(samples)
 
@@ -188,7 +187,7 @@ def train_one_epoch(config, model, criterion, data_loader, optimizer, epoch, mix
         optimizer.step()
         lr_scheduler.step_update(epoch * num_steps + idx)
 
-        loss = loss.to_consistent(sbp=flow.sbp.broadcast).to_local()
+        loss = loss.to_consistent(sbp=broadcast_sbp).to_local()
         grad_norm = grad_norm.to_local()
         loss_meter.update(loss.item() / flow.env.get_world_size(), targets.size(0))
         norm_meter.update(grad_norm)
@@ -219,25 +218,32 @@ def validate(config, data_loader, model):
     acc1_meter = AverageMeter()
     acc5_meter = AverageMeter()
 
+    placement = flow.placement("cuda", {0: [i for i in range(flow.env.get_world_size())]}, (2, 4),)
+    split_sbp = [flow.sbp.split(0), flow.sbp.split(0)]
+    broadcast_sbp = [flow.sbp.broadcast, flow.sbp.broadcast]
+    # placement = flow.env.all_device_placement("cuda")
+    # split_sbp = flow.sbp.split(0)
+    # broadcast_sbp = flow.sbp.broadcast
+
     end = time.time()
     for idx, (images, target) in enumerate(data_loader):
         # images = images.cuda()
         # target = target.cuda()
-        images = images.to_consistent(placement=flow.env.all_device_placement("cuda"), sbp=flow.sbp.split(0))
-        target = target.to_consistent(placement=flow.env.all_device_placement("cuda"), sbp=flow.sbp.split(0))
+        images = images.to_consistent(placement=placement, sbp=split_sbp)
+        target = target.to_consistent(placement=placement, sbp=split_sbp)
 
         # compute output
         output = model(images)
 
         # measure accuracy and record loss
         loss = criterion(output, target)
-        output = output.to_consistent(sbp=flow.sbp.broadcast).to_local()
-        target = target.to_consistent(sbp=flow.sbp.broadcast).to_local()
+        output = output.to_consistent(sbp=broadcast_sbp).to_local()
+        target = target.to_consistent(sbp=broadcast_sbp).to_local()
         acc1, acc5 = accuracy(output, target, topk=(1, 5))
 
         # acc1 = #reduce_tensor(acc1)
         # acc5 = #reduce_tensor(acc5)
-        loss = loss.to_consistent(sbp=flow.sbp.broadcast).to_local() #reduce_tensor(loss)
+        loss = loss.to_consistent(sbp=broadcast_sbp).to_local() #reduce_tensor(loss)
 
         loss_meter.update(loss.item(), target.size(0))
         acc1_meter.update(acc1.item(), target.size(0))
