@@ -71,10 +71,10 @@ def main(config):
     model_without_ddp = model
     logger.info(str(model))
     
-    placement = flow.placement("cuda", {0: [i for i in range(flow.env.get_world_size())]}, (2, 4),)
-    sbp = [flow.sbp.broadcast, flow.sbp.broadcast]
-    # placement = flow.env.all_device_placement("cuda")
-    # sbp = flow.sbp.broadcast
+    # placement = flow.placement("cuda", {0: [i for i in range(flow.env.get_world_size())]}, (2, 4),)
+    # sbp = [flow.sbp.broadcast, flow.sbp.broadcast]
+    placement = flow.env.all_device_placement("cuda")
+    sbp = flow.sbp.broadcast
     model.to_consistent(placement=placement, sbp=sbp)
 
     optimizer = build_optimizer(config, model)
@@ -135,12 +135,12 @@ def train_one_epoch(config, model, criterion, data_loader, optimizer, epoch, mix
     loss_meter = AverageMeter()
     norm_meter = AverageMeter()
 
-    placement = flow.placement("cuda", {0: [i for i in range(flow.env.get_world_size())]}, (2, 4),)
-    split_sbp = [flow.sbp.split(0), flow.sbp.split(0)]
-    broadcast_sbp = [flow.sbp.broadcast, flow.sbp.broadcast]
-    # placement = flow.env.all_device_placement("cuda")
-    # split_sbp = flow.sbp.split(0)
-    # broadcast_sbp = flow.sbp.broadcast
+    # placement = flow.placement("cuda", {0: [i for i in range(flow.env.get_world_size())]}, (2, 4),)
+    # split_sbp = [flow.sbp.split(0), flow.sbp.split(0)]
+    # broadcast_sbp = [flow.sbp.broadcast, flow.sbp.broadcast]
+    placement = flow.env.all_device_placement("cuda")
+    split_sbp = flow.sbp.split(0)
+    broadcast_sbp = flow.sbp.broadcast
 
     start = time.time()
     end = time.time()
@@ -156,19 +156,6 @@ def train_one_epoch(config, model, criterion, data_loader, optimizer, epoch, mix
 
         outputs = model(samples)
 
-        # if config.TRAIN.ACCUMULATION_STEPS > 1:
-        #     loss = criterion(outputs, targets)
-        #     loss = loss / config.TRAIN.ACCUMULATION_STEPS
-        #     loss.backward()
-        #     if config.TRAIN.CLIP_GRAD:
-        #         grad_norm = flow.nn.utils.clip_grad_norm_(model.parameters(), config.TRAIN.CLIP_GRAD)
-        #     else:
-        #         grad_norm = get_grad_norm(model.parameters())
-        #     if (idx + 1) % config.TRAIN.ACCUMULATION_STEPS == 0:
-        #         optimizer.step()
-        #         optimizer.zero_grad()
-        #         lr_scheduler.step_update(epoch * num_steps + idx)
-        # else:
         loss = criterion(outputs, targets)
         loss = loss * flow.env.get_world_size()
 
@@ -177,7 +164,7 @@ def train_one_epoch(config, model, criterion, data_loader, optimizer, epoch, mix
 
         for param_group in optimizer.param_groups:
             for param in param_group.parameters:
-                param.grad /= flow.env.get_world_size()
+                param.grad.detach().mul_( 1.0 / flow.env.get_world_size())
 
         # if config.TRAIN.CLIP_GRAD:
         grad_norm = flow.nn.utils.clip_grad_norm_(model.parameters(), config.TRAIN.CLIP_GRAD)
