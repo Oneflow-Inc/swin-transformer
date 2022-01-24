@@ -56,16 +56,6 @@ def parse_option():
     parser.add_argument('--eval', action='store_true', help='Perform evaluation only')
     parser.add_argument('--throughput', action='store_true', help='Test throughput only')
     parser.add_argument('--config_file', type=str, help='path to dataset')
-    parser.add_argument(
-        "opts",
-        help="""
-Modify config options at the end of the command. For Yacs configs, use
-space-separated "path.key value" pairs.
-For python-based LazyConfig, use "path.key=value".
-        """.strip(),
-        default=None,
-        nargs=argparse.REMAINDER,
-    )
 
     args, unparsed = parser.parse_known_args()
 
@@ -102,7 +92,6 @@ if __name__ == '__main__':
     
     # model.to_consistent(placement=dist.get_layer_placement(0), sbp=dist.get_nd_sbp([flow.sbp.broadcast, flow.sbp.broadcast]))
     optimizer = build_optimizer(config, model)
-    # lr_scheduler = build_scheduler(config, optimizer, len(data_loader_train))
     lr_scheduler = flow.optim.lr_scheduler.CosineAnnealingLR(optimizer, 2)
 
     train_graph = TrainGraph(model=model,
@@ -140,16 +129,6 @@ if __name__ == '__main__':
 
         loss = train_graph(samples, targets)
 
-        # loss = criterion(outputs, targets)
-        # optimizer.zero_grad()
-        # loss.backward()
-
-        # # if config.TRAIN.CLIP_GRAD:
-        # #     grad_norm = flow.nn.utils.clip_grad_norm_(model.parameters(), config.TRAIN.CLIP_GRAD)
-        # optimizer.step()
-
-        # loss_meter.update(loss.item(), targets.size(0))
-        # norm_meter.update(grad_norm)
         batch_time.update(time.time() - end)
         end = time.time()
 
