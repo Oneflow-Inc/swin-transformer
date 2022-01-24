@@ -55,7 +55,7 @@ def parse_option():
     parser.add_argument('--tag', help='tag of experiment')
     parser.add_argument('--eval', action='store_true', help='Perform evaluation only')
     parser.add_argument('--throughput', action='store_true', help='Test throughput only')
-    parser.add_argument('--config_file', type=str, help='path to dataset')
+    parser.add_argument('--libai_config_file', type=str, help='path to dataset')
 
     args, unparsed = parser.parse_known_args()
 
@@ -67,7 +67,6 @@ if __name__ == '__main__':
     args, config = parse_option()
 
     cfg = LazyConfig.load(args.config_file)
-    cfg = LazyConfig.apply_overrides(cfg, ["train.dist.tensor_parallel_size=1"])
     dist.setup_dist_util(cfg.train.dist)
 
     flow.boxing.nccl.set_fusion_threshold_mbytes(16)
