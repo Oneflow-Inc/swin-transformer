@@ -100,7 +100,7 @@ if __name__ == '__main__':
     # placement = flow.env.all_device_placement("cuda")
     # sbp = flow.sbp.broadcast
     
-    model.to_consistent(placement=dist.get_layer_placement(0), sbp=dist.get_nd_sbp([flow.sbp.broadcast, flow.sbp.broadcast]))
+    # model.to_consistent(placement=dist.get_layer_placement(0), sbp=dist.get_nd_sbp([flow.sbp.broadcast, flow.sbp.broadcast]))
     optimizer = build_optimizer(config, model)
     # lr_scheduler = build_scheduler(config, optimizer, len(data_loader_train))
     lr_scheduler = flow.optim.lr_scheduler.CosineAnnealingLR(optimizer, 2)

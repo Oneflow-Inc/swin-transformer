@@ -160,7 +160,11 @@ class WindowAttention(nn.Module):
         relative_coords[:, :, 1] += self.window_size[1] - 1
         relative_coords[:, :, 0] *= 2 * self.window_size[1] - 1
         relative_position_index = relative_coords.sum(-1)  # Wh*Ww, Wh*Ww
-        self.register_buffer("relative_position_index", relative_position_index)
+        self.register_buffer("relative_position_index", \
+            relative_position_index.to_consistent(
+                placement=dist.get_layer_placement(0), 
+                sbp=dist.get_nd_sbp([flow.sbp.broadcast, flow.sbp.broadcast]))
+        )
 
         self.qkv = nn.Linear(dim, dim * 3, bias=qkv_bias)
         self.attn_drop = nn.Dropout(attn_drop)
@@ -331,6 +335,9 @@ class SwinTransformerBlock(nn.Module):
             attn_mask = attn_mask.masked_fill(
                 attn_mask != 0, float(-100.0)
             ).masked_fill(attn_mask == 0, float(0.0))
+            attn_mask = attn_mask.to_consistent(
+                placement=dist.get_layer_placement(0), 
+                sbp=dist.get_nd_sbp([flow.sbp.broadcast, flow.sbp.broadcast]))
         else:
             attn_mask = None
 
