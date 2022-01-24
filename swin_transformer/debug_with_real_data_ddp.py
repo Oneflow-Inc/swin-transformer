@@ -25,6 +25,8 @@ from data import build_loader
 from optimizer import build_optimizer
 from lr_scheduler import build_scheduler
 
+from libai.utils import distributed as dist
+from libai.config import LazyConfig
 
 def parse_option():
     parser = argparse.ArgumentParser('Swin Transformer training and evaluation script', add_help=False)
@@ -53,6 +55,17 @@ def parse_option():
     parser.add_argument('--tag', help='tag of experiment')
     parser.add_argument('--eval', action='store_true', help='Perform evaluation only')
     parser.add_argument('--throughput', action='store_true', help='Test throughput only')
+    parser.add_argument('--config_file', type=str, help='path to dataset')
+    parser.add_argument(
+        "opts",
+        help="""
+Modify config options at the end of the command. For Yacs configs, use
+space-separated "path.key value" pairs.
+For python-based LazyConfig, use "path.key=value".
+        """.strip(),
+        default=None,
+        nargs=argparse.REMAINDER,
+    )
 
     args, unparsed = parser.parse_known_args()
 
@@ -62,6 +75,10 @@ def parse_option():
 
 if __name__ == '__main__':
     args, config = parse_option()
+
+    cfg = LazyConfig.load(args.config_file)
+    cfg = LazyConfig.apply_overrides(cfg, ["train.dist.tensor_parallel_size=1"])
+    dist.setup_dist_util(cfg.train.dist)
 
     flow.boxing.nccl.set_fusion_threshold_mbytes(16)
     flow.boxing.nccl.set_fusion_max_ops_num(24)
@@ -80,10 +97,10 @@ if __name__ == '__main__':
 
     # placement = flow.placement("cuda", {0: [i for i in range(flow.env.get_world_size())]}, (2, 4),)
     # sbp = [flow.sbp.broadcast, flow.sbp.broadcast]
-    placement = flow.env.all_device_placement("cuda")
-    sbp = flow.sbp.broadcast
+    # placement = flow.env.all_device_placement("cuda")
+    # sbp = flow.sbp.broadcast
     
-    model.to_consistent(placement=placement, sbp=sbp)
+    model.to_consistent(placement=dist.get_layer_placement(0), sbp=dist.get_nd_sbp([flow.sbp.broadcast, flow.sbp.broadcast]))
     optimizer = build_optimizer(config, model)
     # lr_scheduler = build_scheduler(config, optimizer, len(data_loader_train))
     lr_scheduler = flow.optim.lr_scheduler.CosineAnnealingLR(optimizer, 2)
@@ -103,7 +120,6 @@ if __name__ == '__main__':
     start_time = time.time()
     end = time.time()
 
-
     # sbp = [flow.sbp.split(0), flow.sbp.split(0)]
     sbp = flow.sbp.split(0)
 
@@ -119,8 +135,8 @@ if __name__ == '__main__':
             samples, targets = mixup_fn(samples, targets)
 
         
-        samples = samples.to_consistent(placement=placement, sbp=sbp)
-        targets = targets.to_consistent(placement=placement, sbp=sbp)
+        samples = samples.to_consistent(placement=dist.get_layer_placement(0), sbp=sbp)
+        targets = targets.to_consistent(placement=dist.get_layer_placement(0), sbp=sbp)
 
         loss = train_graph(samples, targets)
 
