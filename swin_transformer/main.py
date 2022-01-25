@@ -72,32 +72,16 @@ def main(config):
 
     logger.info(f"Creating model:{config.MODEL.TYPE}/{config.MODEL.NAME}")
     model = build_model(config)
-
-    # checkpoint = flow.load("torch_swin_tiny_init_model_for_oneflow")
-    # msg = model.load_state_dict(checkpoint, strict=False)
-    # print("load dict: ", msg)
-
-    model.cuda()
     logger.info(str(model))
-
-    optimizer = build_optimizer(config, model)
     model_without_ddp = model
 
-    # n_parameters = sum(p.numel() for p in model.parameters() if p.requires_grad)
-    # logger.info(f"number of params: {n_parameters}")
-    # if hasattr(model_without_ddp, 'flops'):
-    #     flops = model_without_ddp.flops()
-    #     logger.info(f"number of GFLOPs: {flops / 1e9}")
-
-    lr_scheduler = build_scheduler(config, optimizer, len(data_loader_train))
-
-    # if config.AUG.MIXUP > 0.:
-    #     # smoothing is handled with mixup label transform
-    criterion = SoftTargetCrossEntropy()
-    # elif config.MODEL.LABEL_SMOOTHING > 0.:
-    #     criterion = LabelSmoothingCrossEntropy(smoothing=config.MODEL.LABEL_SMOOTHING)
-    # else:
-    # criterion = flow.nn.CrossEntropyLoss()
+    if config.AUG.MIXUP > 0.:
+        # smoothing is handled with mixup label transform
+        criterion = SoftTargetCrossEntropy()
+    elif config.MODEL.LABEL_SMOOTHING > 0.:
+        criterion = LabelSmoothingCrossEntropy(smoothing=config.MODEL.LABEL_SMOOTHING)
+    else:
+        criterion = flow.nn.CrossEntropyLoss()
 
     # placement = flow.placement("cuda", {0: [i for i in range(flow.env.get_world_size())]}, (2, 4),)
     # sbp = [flow.sbp.broadcast, flow.sbp.broadcast]
@@ -107,8 +91,7 @@ def main(config):
     model.to_consistent(placement=placement, sbp=sbp)
     
     optimizer = build_optimizer(config, model)
-    # lr_scheduler = build_scheduler(config, optimizer, len(data_loader_train))
-    lr_scheduler = flow.optim.lr_scheduler.CosineAnnealingLR(optimizer, 2)
+    lr_scheduler = build_scheduler(config, optimizer, len(data_loader_train))
     
     max_accuracy = 0.0
     if config.MODEL.RESUME:
