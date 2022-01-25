@@ -22,7 +22,7 @@ from data import build_loader
 from lr_scheduler import build_scheduler
 from optimizer import build_optimizer
 from logger import create_logger
-from utils import load_checkpoint, save_checkpoint, get_grad_norm, auto_resume_helper, reduce_tensor
+from utils import load_checkpoint, save_checkpoint
 
 from models.graph import TrainGraph, EvalGraph
 
@@ -94,10 +94,12 @@ def main(config):
     if config.MODEL.RESUME:
         max_accuracy = load_checkpoint(config, model_without_ddp, optimizer, lr_scheduler, logger)
     
+    model.train()
     train_graph = TrainGraph(model=model,
                              loss_fn=criterion,
                              optimizer=optimizer,
                              lr_scheduler=lr_scheduler)
+    model.eval()
     eval_graph = EvalGraph(model=model)
 
 
@@ -107,7 +109,6 @@ def main(config):
         data_loader_train.sampler.set_epoch(epoch)
 
         train_one_epoch(config, train_graph, criterion, data_loader_train, optimizer, epoch, mixup_fn, lr_scheduler)
-        # if dist.get_rank() == 0 and (epoch % config.SAVE_FREQ == 0 or epoch == (config.TRAIN.EPOCHS - 1)):
         if (epoch % config.SAVE_FREQ == 0 or epoch == (config.TRAIN.EPOCHS - 1)):
             save_checkpoint(config, epoch, model_without_ddp, max_accuracy, optimizer, lr_scheduler, logger)
 
@@ -121,16 +122,6 @@ def main(config):
     total_time_str = str(datetime.timedelta(seconds=int(total_time)))
     logger.info('Training time {}'.format(total_time_str))
 
-
-def one_hot(x, num_classes, on_value=1.0, off_value=0.0, device="cuda"):
-    x = x.long().view(-1, 1)
-    # TODO: switch to tensor.scatter method
-    return flow.scatter(
-        flow.full((x.size()[0], num_classes), off_value, device=device),
-        dim=1,
-        index=x,
-        src=on_value,
-    )
 
 def train_one_epoch(config, train_graph, criterion, data_loader, optimizer, epoch, mixup_fn, lr_scheduler):
     # model.train()
@@ -183,7 +174,6 @@ def validate(config, data_loader, eval_graph):
     sbp = flow.sbp.split(0)
 
     criterion = flow.nn.CrossEntropyLoss()
-    # model.eval()
 
     batch_time = AverageMeter()
     loss_meter = AverageMeter()
@@ -192,12 +182,6 @@ def validate(config, data_loader, eval_graph):
 
     end = time.time()
     for idx, (images, target) in enumerate(data_loader):
-        # images = images.cuda()
-        # target = target.cuda()
-
-        # images = images.to_consistent(placement=placement, sbp=sbp)
-        # target = target.to_consistent(placement=placement, sbp=sbp)
-
         images = images.to_consistent(placement=placement, sbp=sbp)
         target = target.to_consistent(placement=placement, sbp=sbp)
 
@@ -210,9 +194,7 @@ def validate(config, data_loader, eval_graph):
         target = target.to_consistent(sbp=flow.sbp.broadcast).to_local()
         acc1, acc5 = accuracy(output, target, topk=(1, 5))
 
-        # acc1 = reduce_tensor(acc1)
-        # acc5 = reduce_tensor(acc5)
-        loss = loss.to_consistent(sbp=flow.sbp.broadcast).to_local() #reduce_tensor(loss)
+        loss = loss.to_consistent(sbp=flow.sbp.broadcast).to_local()
 
         loss_meter.update(loss.item(), target.size(0))
         acc1_meter.update(acc1.item(), target.size(0))
@@ -243,21 +225,16 @@ def throughput(data_loader, model, logger):
         batch_size = images.shape[0]
         for i in range(50):
             model(images)
-        # flow.cuda.synchronize()
         logger.info(f"throughput averaged with 30 times")
         tic1 = time.time()
         for i in range(30):
             model(images)
-        # flow.cuda.synchronize()
         tic2 = time.time()
         logger.info(f"batch_size {batch_size} throughput {30 * batch_size / (tic2 - tic1)}")
         return
 
 
 if __name__ == '__main__':
-    # import multiprocessing as mp
-    # mp.set_start_method("spawn")
-
     args, config = parse_option()
 
     cfg = LazyConfig.load(args.libai_config_file)

@@ -1,9 +1,6 @@
 import oneflow as flow
 import oneflow.nn as nn
 
-import math
-import warnings
-
 from flowvision.layers.weight_init import trunc_normal_
 
 from libai.layers import MLP, Linear, LayerNorm
@@ -66,46 +63,6 @@ def window_reverse(windows, window_size, H, W):
     )
     x = x.permute(0, 1, 3, 2, 4, 5).view(B, H, W, -1)
     return x
-
-
-# class Mlp(nn.Module):
-#     def __init__(
-#         self,
-#         in_features,
-#         hidden_features=None,
-#         out_features=None,
-#         act_layer=nn.GELU,
-#         drop=0.0,
-#         fused_gelu=False,
-#         fused_bias_add_dropout=False,
-#     ):
-#         super().__init__()
-#         out_features = out_features or in_features
-#         hidden_features = hidden_features or in_features
-#         self.fc1 = nn.Linear(in_features, hidden_features)
-#         self.act = act_layer()
-#         self.fc2 = nn.Linear(hidden_features, out_features)
-#         self.drop = nn.Dropout(drop)
-#         self.fused_gelu = fused_gelu
-
-#     def forward(self, x):
-#         if self.fused_gelu and self.act == nn.GELU:
-#             x = flow._C.linear(x, self.fc1.weight, transpose_a=False, transpose_b=True)
-#             x = flow._C.fused_bias_add_gelu(x, self.fc1.bias, axis=2)
-#             x = self.drop(x)
-#             if fused_bias_add_dropout:
-#                 x = flow._C.linear(x, self.fc2.weight, transpose_a=False, transpose_b=True)
-#                 x = flow._C.fused_bias_add_dropout(x, self.fc2.bias, p=drop, axis=2)
-#             else:
-#                 x = self.fc2(x)
-#                 x = self.drop(x)
-#         else:
-#             x = self.fc1(x)
-#             x = self.act(x)
-#             x = self.drop(x)
-#             x = self.fc2(x)
-#             x = self.drop(x)
-#         return x
 
 
 class WindowAttention(nn.Module):
@@ -291,14 +248,6 @@ class SwinTransformerBlock(nn.Module):
         self.drop_path = DropPath(drop_path) if drop_path > 0.0 else nn.Identity()
         self.norm2 = norm_layer(dim)
         mlp_hidden_dim = int(dim * mlp_ratio)
-        # self.mlp = Mlp(
-        #     in_features=dim,
-        #     hidden_features=mlp_hidden_dim,
-        #     act_layer=act_layer,
-        #     drop=drop,
-        #     fused_gelu=True,
-        #     fused_bias_add_dropout=True,
-        # )
         self.mlp = MLP(
             hidden_size=dim,
             ffn_hidden_size=mlp_hidden_dim,

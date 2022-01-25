@@ -29,9 +29,6 @@ def load_checkpoint(config, model, optimizer, lr_scheduler, logger):
         logger.info(f"=> loaded successfully '{config.MODEL.RESUME}' (epoch {checkpoint['epoch']})")
         if 'max_accuracy' in checkpoint:
             max_accuracy = checkpoint['max_accuracy']
-
-    # del checkpoint
-    # torch.cuda.empty_cache()
     return max_accuracy
 
 
@@ -48,44 +45,3 @@ def save_checkpoint(config, epoch, model, max_accuracy, optimizer, lr_scheduler,
     torch.save(save_state, save_path, consistent_dst_rank=0)
     logger.info(f"{save_path} saved !!!")
 
-
-def get_grad_norm(parameters, norm_type=2):
-    # if isinstance(parameters, torch.Tensor):
-    #     parameters = [parameters]
-    # parameters = list(filter(lambda p: p.grad is not None, parameters))
-    # norm_type = float(norm_type)
-    # total_norm = 0
-    # for p in parameters:
-    #     param_norm = p.grad.data.norm(norm_type)
-    #     total_norm += param_norm.item() ** norm_type
-    # total_norm = total_norm ** (1. / norm_type)
-    total_norm = torch.linalg.vector_norm(
-        torch.stack(
-            [
-                torch.linalg.vector_norm(p.grad.detach(), norm_type)
-                for p in parameters
-            ]
-        ),
-        norm_type,
-    )
-    return total_norm
-
-
-def auto_resume_helper(output_dir):
-    checkpoints = os.listdir(output_dir)
-    checkpoints = [ckpt for ckpt in checkpoints if os.path.isdir(ckpt)]
-    print(f"All checkpoints founded in {output_dir}: {checkpoints}")
-    if len(checkpoints) > 0:
-        latest_checkpoint = max([os.path.join(output_dir, d) for d in checkpoints], key=os.path.getmtime)
-        print(f"The latest checkpoint founded: {latest_checkpoint}")
-        resume_file = latest_checkpoint
-    else:
-        resume_file = None
-    return resume_file
-
-
-def reduce_tensor(tensor):
-    rt = tensor.clone()
-    torch.comm.all_reduce(rt)
-    rt /= torch.env.get_world_size()
-    return rt

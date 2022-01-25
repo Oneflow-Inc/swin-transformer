@@ -218,16 +218,12 @@ def update_config(config, args):
         config.DATA.ZIP_MODE = True
     if args.cache_mode:
         config.DATA.CACHE_MODE = args.cache_mode
-    # if args.pretrained:
-    #     config.MODEL.PRETRAINED = args.pretrained
     if args.resume:
         config.MODEL.RESUME = args.resume
     if args.accumulation_steps:
         config.TRAIN.ACCUMULATION_STEPS = args.accumulation_steps
     if args.use_checkpoint:
         config.TRAIN.USE_CHECKPOINT = True
-    # if args.amp_opt_level:
-    #     config.AMP_OPT_LEVEL = args.amp_opt_level
     if args.output:
         config.OUTPUT = args.output
     if args.tag:
@@ -236,9 +232,6 @@ def update_config(config, args):
         config.EVAL_MODE = True
     if args.throughput:
         config.THROUGHPUT_MODE = True
-
-    # set local rank for distributed training
-    # config.LOCAL_RANK = args.local_rank
 
     # output folder
     config.OUTPUT = os.path.join(config.OUTPUT, config.MODEL.NAME, config.TAG)
