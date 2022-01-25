@@ -24,6 +24,7 @@ from optimizer import build_optimizer
 from logger import create_logger
 from utils import load_checkpoint, save_checkpoint, get_grad_norm, auto_resume_helper, reduce_tensor
 
+from models.graph import TrainGraph, EvalGraph
 
 def parse_option():
     parser = argparse.ArgumentParser('Swin Transformer training and evaluation script', add_help=False)
@@ -66,6 +67,9 @@ def parse_option():
 def main(config):
     dataset_train, dataset_val, data_loader_train, data_loader_val, mixup_fn = build_loader(config)
 
+    flow.boxing.nccl.set_fusion_threshold_mbytes(16)
+    flow.boxing.nccl.set_fusion_max_ops_num(24)
+
     logger.info(f"Creating model:{config.MODEL.TYPE}/{config.MODEL.NAME}")
     model = build_model(config)
 
@@ -77,17 +81,15 @@ def main(config):
     logger.info(str(model))
 
     optimizer = build_optimizer(config, model)
-    model = flow.nn.parallel.DistributedDataParallel(model, broadcast_buffers=False)
     model_without_ddp = model
 
-    n_parameters = sum(p.numel() for p in model.parameters() if p.requires_grad)
-    logger.info(f"number of params: {n_parameters}")
-    if hasattr(model_without_ddp, 'flops'):
-        flops = model_without_ddp.flops()
-        logger.info(f"number of GFLOPs: {flops / 1e9}")
+    # n_parameters = sum(p.numel() for p in model.parameters() if p.requires_grad)
+    # logger.info(f"number of params: {n_parameters}")
+    # if hasattr(model_without_ddp, 'flops'):
+    #     flops = model_without_ddp.flops()
+    #     logger.info(f"number of GFLOPs: {flops / 1e9}")
 
     lr_scheduler = build_scheduler(config, optimizer, len(data_loader_train))
-    # lr_scheduler = flow.optim.lr_scheduler.CosineAnnealingLR(optimizer, 2)
 
     # if config.AUG.MIXUP > 0.:
     #     # smoothing is handled with mixup label transform
@@ -97,43 +99,39 @@ def main(config):
     # else:
     # criterion = flow.nn.CrossEntropyLoss()
 
+    # placement = flow.placement("cuda", {0: [i for i in range(flow.env.get_world_size())]}, (2, 4),)
+    # sbp = [flow.sbp.broadcast, flow.sbp.broadcast]
+    placement = flow.env.all_device_placement("cuda")
+    sbp = flow.sbp.broadcast
+    
+    model.to_consistent(placement=placement, sbp=sbp)
+    
+    optimizer = build_optimizer(config, model)
+    # lr_scheduler = build_scheduler(config, optimizer, len(data_loader_train))
+    lr_scheduler = flow.optim.lr_scheduler.CosineAnnealingLR(optimizer, 2)
+    
     max_accuracy = 0.0
-
-    if config.TRAIN.AUTO_RESUME:
-        resume_file = auto_resume_helper(config.OUTPUT)
-        if resume_file:
-            if config.MODEL.RESUME:
-                logger.warning(f"auto-resume changing resume file from {config.MODEL.RESUME} to {resume_file}")
-            config.defrost()
-            config.MODEL.RESUME = resume_file
-            config.freeze()
-            logger.info(f'auto resuming from {resume_file}')
-        else:
-            logger.info(f'no checkpoint found in {config.OUTPUT}, ignoring auto resume')
-
     if config.MODEL.RESUME:
         max_accuracy = load_checkpoint(config, model_without_ddp, optimizer, lr_scheduler, logger)
-        # acc1, acc5, loss = validate(config, data_loader_val, model)
-        # logger.info(f"Accuracy of the network on the {len(dataset_val)} test images: {acc1:.1f}%")
-        # if config.EVAL_MODE:
-        #     return
+    train_graph = TrainGraph(model=model,
+                             loss_fn=criterion,
+                             optimizer=optimizer,
+                             lr_scheduler=lr_scheduler)
+    eval_graph = EvalGraph(model=model)
 
-    # if config.THROUGHPUT_MODE:
-    #     throughput(data_loader_val, model, logger)
-    #     return
 
     logger.info("Start training")
     start_time = time.time()
     for epoch in range(config.TRAIN.START_EPOCH, config.TRAIN.EPOCHS):
         data_loader_train.sampler.set_epoch(epoch)
 
-        train_one_epoch(config, model, criterion, data_loader_train, optimizer, epoch, mixup_fn, lr_scheduler)
+        train_one_epoch(config, train_graph, criterion, data_loader_train, optimizer, epoch, mixup_fn, lr_scheduler)
         # if dist.get_rank() == 0 and (epoch % config.SAVE_FREQ == 0 or epoch == (config.TRAIN.EPOCHS - 1)):
-        if flow.env.get_rank() == 0 and (epoch % config.SAVE_FREQ == 0 or epoch == (config.TRAIN.EPOCHS - 1)):
+        if (epoch % config.SAVE_FREQ == 0 or epoch == (config.TRAIN.EPOCHS - 1)):
             save_checkpoint(config, epoch, model_without_ddp, max_accuracy, optimizer, lr_scheduler, logger)
 
         # no validate
-        acc1, acc5, loss = validate(config, data_loader_val, model)
+        acc1, acc5, loss = validate(config, data_loader_val, eval_graph)
         logger.info(f"Accuracy of the network on the {len(dataset_val)} test images: {acc1:.1f}%")
         max_accuracy = max(max_accuracy, acc1)
         logger.info(f'Max accuracy: {max_accuracy:.2f}%')
@@ -153,9 +151,12 @@ def one_hot(x, num_classes, on_value=1.0, off_value=0.0, device="cuda"):
         src=on_value,
     )
 
-def train_one_epoch(config, model, criterion, data_loader, optimizer, epoch, mixup_fn, lr_scheduler):
-    model.train()
+def train_one_epoch(config, train_graph, criterion, data_loader, optimizer, epoch, mixup_fn, lr_scheduler):
+    # model.train()
     optimizer.zero_grad()
+
+    placement = flow.env.all_device_placement("cuda")
+    sbp = flow.sbp.split(0)
 
     num_steps = len(data_loader)
     batch_time = AverageMeter()
@@ -171,8 +172,11 @@ def train_one_epoch(config, model, criterion, data_loader, optimizer, epoch, mix
         if mixup_fn is not None:
             samples, targets = mixup_fn(samples, targets)
 
+        samples = samples.to_consistent(placement=placement, sbp=sbp)
+        targets = targets.to_consistent(placement=placement, sbp=sbp)
+
         # targets = one_hot(targets, config.MODEL.NUM_CLASSES)
-        outputs = model(samples)
+        loss = train_graph(samples, targets)
 
         # if config.TRAIN.ACCUMULATION_STEPS > 1:
         #     loss = criterion(outputs, targets)
@@ -187,20 +191,20 @@ def train_one_epoch(config, model, criterion, data_loader, optimizer, epoch, mix
         #         optimizer.zero_grad()
         #         lr_scheduler.step_update(epoch * num_steps + idx)
         # else:
-        loss = criterion(outputs, targets)
-        optimizer.zero_grad()
-        loss.backward()
-        # if config.TRAIN.CLIP_GRAD:
-        grad_norm = flow.nn.utils.clip_grad_norm_(model.parameters(), config.TRAIN.CLIP_GRAD)
-        # else:
-        # grad_norm = get_grad_norm(model.parameters())
-        optimizer.step()
-        lr_scheduler.step_update(epoch * num_steps + idx)
+        # loss = criterion(outputs, targets)
+        # optimizer.zero_grad()
+        # loss.backward()
+        # # if config.TRAIN.CLIP_GRAD:
+        # grad_norm = flow.nn.utils.clip_grad_norm_(model.parameters(), config.TRAIN.CLIP_GRAD)
+        # # else:
+        # # grad_norm = get_grad_norm(model.parameters())
+        # optimizer.step()
+        # lr_scheduler.step_update(epoch * num_steps + idx)
 
         # flow.cuda.synchronize()
 
-        loss_meter.update(loss.item(), targets.size(0))
-        norm_meter.update(grad_norm)
+        loss_meter.update(loss.to_consistent(sbp=flow.sbp.broadcast).to_local().item(), targets.size(0))
+        # norm_meter.update(grad_norm)
         batch_time.update(time.time() - end)
         end = time.time()
 
@@ -219,9 +223,12 @@ def train_one_epoch(config, model, criterion, data_loader, optimizer, epoch, mix
 
 
 @flow.no_grad()
-def validate(config, data_loader, model):
+def validate(config, data_loader, eval_graph):
+    placement = flow.env.all_device_placement("cuda")
+    sbp = flow.sbp.split(0)
+
     criterion = flow.nn.CrossEntropyLoss()
-    model.eval()
+    # model.eval()
 
     batch_time = AverageMeter()
     loss_meter = AverageMeter()
@@ -230,19 +237,24 @@ def validate(config, data_loader, model):
 
     end = time.time()
     for idx, (images, target) in enumerate(data_loader):
-        images = images.cuda()
-        target = target.cuda()
+        # images = images.cuda()
+        # target = target.cuda()
+
+        images = images.to_consistent(placement=placement, sbp=sbp)
+        target = target.to_consistent(placement=placement, sbp=sbp)
 
         # compute output
-        output = model(images)
+        output = eval_graph(images)
 
         # measure accuracy and record loss
         loss = criterion(output, target)
+        output = output.to_consistent(sbp=flow.sbp.broadcast).to_local()
+        target = target.to_consistent(sbp=flow.sbp.broadcast).to_local()
         acc1, acc5 = accuracy(output, target, topk=(1, 5))
 
-        acc1 = reduce_tensor(acc1)
-        acc5 = reduce_tensor(acc5)
-        loss = reduce_tensor(loss)
+        # acc1 = reduce_tensor(acc1)
+        # acc5 = reduce_tensor(acc5)
+        loss = loss.to_consistent(sbp=flow.sbp.broadcast).to_local() #reduce_tensor(loss)
 
         loss_meter.update(loss.item(), target.size(0))
         acc1_meter.update(acc1.item(), target.size(0))

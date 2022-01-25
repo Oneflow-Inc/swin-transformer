@@ -53,7 +53,7 @@ def build_loader(config):
         batch_size=config.DATA.BATCH_SIZE,
         shuffle=False,
         num_workers=config.DATA.NUM_WORKERS,
-        drop_last=False
+        drop_last=True
     )
 
     # setup mixup / cutmix
@@ -143,6 +143,6 @@ def build_transform(is_train, config):
                                   interpolation=str_to_interp_mode(config.DATA.INTERPOLATION))
             )
 
-    t.append(transforms.ToTensor())
     t.append(transforms.Normalize(IMAGENET_DEFAULT_MEAN, IMAGENET_DEFAULT_STD))
+    t.append(transforms.ToTensor())
     return transforms.Compose(t)
