@@ -66,7 +66,7 @@ def parse_option():
 if __name__ == '__main__':
     args, config = parse_option()
 
-    cfg = LazyConfig.load(args.config_file)
+    cfg = LazyConfig.load(args.libai_config_file)
     dist.setup_dist_util(cfg.train.dist)
 
     flow.boxing.nccl.set_fusion_threshold_mbytes(16)
