@@ -107,11 +107,7 @@ if __name__ == '__main__':
     loss_meter = AverageMeter()
     norm_meter = AverageMeter()
 
-    start = time.time()
-    end = time.time()
-
-    flow.cuda.nvtx.range_push('train begin')
-    for idx in range(30):
+    for idx in range(5):
         model.train()
         optimizer.zero_grad()
 
@@ -134,7 +130,38 @@ if __name__ == '__main__':
         optimizer.step()
 
         # flow.cuda.synchronize()
-        # loss_meter.update(loss.item(), targets.size(0))
+        loss_meter.update(loss.item(), targets.size(0))
+        norm_meter.update(grad_norm)
+
+
+    start = time.time()
+    end = time.time()
+
+    flow.cuda.nvtx.range_push('train begin')
+    for idx in range(200):
+        model.train()
+        optimizer.zero_grad()
+
+        samples, targets = data_loader_train_iter.__next__()
+        samples = samples.cuda(non_blocking=False)
+        targets = targets.cuda(non_blocking=False)
+
+        if mixup_fn is not None:
+            samples, targets = mixup_fn(samples, targets)
+        
+        outputs = model(samples)
+        # outputs.sum().backward()
+        
+        loss = criterion(outputs, targets)
+        optimizer.zero_grad()
+        loss.backward()
+
+        if config.TRAIN.CLIP_GRAD:
+            grad_norm = flow.nn.utils.clip_grad_norm_(model.parameters(), config.TRAIN.CLIP_GRAD)
+        optimizer.step()
+
+        # flow.cuda.synchronize()
+        loss_meter.update(loss.item(), targets.size(0))
         norm_meter.update(grad_norm)
         batch_time.update(time.time() - end)
         end = time.time()
