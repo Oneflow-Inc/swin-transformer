@@ -124,7 +124,7 @@ if __name__ == '__main__':
     start_time = time.time()
     end = time.time()
     flow._oneflow_internal.profiler.RangePush('oneflow ddp train begin')
-    for idx in range(30):
+    for idx in range(200):
         model.train()
         optimizer.zero_grad()
 
@@ -144,7 +144,8 @@ if __name__ == '__main__':
         if config.TRAIN.CLIP_GRAD:
             grad_norm = flow.nn.utils.clip_grad_norm_(model.parameters(), config.TRAIN.CLIP_GRAD)
         optimizer.step()
-
+        
+        # print('233')
         # loss_meter.update(loss.item(), targets.size(0))
         norm_meter.update(grad_norm)
         batch_time.update(time.time() - end)
