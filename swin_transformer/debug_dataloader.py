@@ -98,6 +98,7 @@ if __name__ == '__main__':
     start_time = time.time()
     end = time.time()
 
+    flow._oneflow_internal.profiler.RangePush('dataloader begin!')
     for idx in range(200):
         # model.train()
         # optimizer.zero_grad()
@@ -125,6 +126,7 @@ if __name__ == '__main__':
         # end = time.time()
 
     # print(outputs)
+    flow._oneflow_internal.profiler.RangePop()
     total_time = time.time() - start_time
     total_time_str = str(datetime.timedelta(seconds=int(total_time)))
     print(total_time_str)
