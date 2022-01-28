@@ -117,8 +117,8 @@ if __name__ == '__main__':
         # optimizer.zero_grad()
 
         samples, targets = data_loader_train_iter.__next__()
-        samples = samples.cuda(non_blocking=True)
-        targets = targets.cuda(non_blocking=True)
+        # samples = samples.cuda(non_blocking=True)
+        # targets = targets.cuda(non_blocking=True)
 
         # if mixup_fn is not None:
         #     samples, targets = mixup_fn(input_image, input_label)
