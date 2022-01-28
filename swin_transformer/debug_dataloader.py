@@ -111,7 +111,7 @@ if __name__ == '__main__':
 
     start = time.time()
     # end = time.time()
-
+    flow.cuda.nvtx.range_push('dataloader begin!')
     for idx in range(200):
         # model.train()
         # optimizer.zero_grad()
@@ -140,6 +140,7 @@ if __name__ == '__main__':
         # batch_time.update(time.time() - end)
         # end = time.time()
 
+    flow.cuda.nvtx.range_pop()
     # print(outputs)
     total_time = time.time() - start
     total_time_str = str(datetime.timedelta(seconds=int(total_time)))
