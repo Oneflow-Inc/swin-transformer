@@ -205,12 +205,12 @@ def validate(config, data_loader, model):
     acc1_meter = AverageMeter()
     acc5_meter = AverageMeter()
 
-    placement = flow.placement("cuda", {0: [i for i in range(flow.env.get_world_size())]}, (2, 4),)
-    split_sbp = [flow.sbp.split(0), flow.sbp.split(0)]
-    broadcast_sbp = [flow.sbp.broadcast, flow.sbp.broadcast]
-    # placement = flow.env.all_device_placement("cuda")
-    # split_sbp = flow.sbp.split(0)
-    # broadcast_sbp = flow.sbp.broadcast
+    # placement = flow.placement("cuda", {0: [i for i in range(flow.env.get_world_size())]}, (2, 4),)
+    # split_sbp = [flow.sbp.split(0), flow.sbp.split(0)]
+    # broadcast_sbp = [flow.sbp.broadcast, flow.sbp.broadcast]
+    placement = flow.env.all_device_placement("cuda")
+    split_sbp = flow.sbp.split(0)
+    broadcast_sbp = flow.sbp.broadcast
 
     end = time.time()
     for idx, (images, target) in enumerate(data_loader):
