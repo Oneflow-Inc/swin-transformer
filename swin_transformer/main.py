@@ -123,17 +123,6 @@ def main(config):
     total_time_str = str(datetime.timedelta(seconds=int(total_time)))
     logger.info('Training time {}'.format(total_time_str))
 
-
-def one_hot(x, num_classes, on_value=1.0, off_value=0.0, device="cuda"):
-    x = x.long().view(-1, 1)
-    # TODO: switch to tensor.scatter method
-    return flow.scatter(
-        flow.full((x.size()[0], num_classes), off_value, device=device),
-        dim=1,
-        index=x,
-        src=on_value,
-    )
-
 def train_one_epoch(config, train_graph, criterion, data_loader, optimizer, epoch, mixup_fn, lr_scheduler):
     # model.train()
     optimizer.zero_grad()
@@ -158,36 +147,8 @@ def train_one_epoch(config, train_graph, criterion, data_loader, optimizer, epoc
         samples = samples.to_consistent(placement=placement, sbp=sbp)
         targets = targets.to_consistent(placement=placement, sbp=sbp)
 
-        # targets = one_hot(targets, config.MODEL.NUM_CLASSES)
         loss = train_graph(samples, targets)
-
-        # if config.TRAIN.ACCUMULATION_STEPS > 1:
-        #     loss = criterion(outputs, targets)
-        #     loss = loss / config.TRAIN.ACCUMULATION_STEPS
-        #     loss.backward()
-        #     if config.TRAIN.CLIP_GRAD:
-        #         grad_norm = flow.nn.utils.clip_grad_norm_(model.parameters(), config.TRAIN.CLIP_GRAD)
-        #     else:
-        #         grad_norm = get_grad_norm(model.parameters())
-        #     if (idx + 1) % config.TRAIN.ACCUMULATION_STEPS == 0:
-        #         optimizer.step()
-        #         optimizer.zero_grad()
-        #         lr_scheduler.step_update(epoch * num_steps + idx)
-        # else:
-        # loss = criterion(outputs, targets)
-        # optimizer.zero_grad()
-        # loss.backward()
-        # # if config.TRAIN.CLIP_GRAD:
-        # grad_norm = flow.nn.utils.clip_grad_norm_(model.parameters(), config.TRAIN.CLIP_GRAD)
-        # # else:
-        # # grad_norm = get_grad_norm(model.parameters())
-        # optimizer.step()
-        # lr_scheduler.step_update(epoch * num_steps + idx)
-
-        # flow.cuda.synchronize()
-
         loss_meter.update(loss.to_consistent(sbp=flow.sbp.broadcast).to_local().item(), targets.size(0))
-        # norm_meter.update(grad_norm)
         batch_time.update(time.time() - end)
         end = time.time()
 
@@ -211,7 +172,6 @@ def validate(config, data_loader, eval_graph):
     sbp = flow.sbp.split(0)
 
     criterion = flow.nn.CrossEntropyLoss()
-    # model.eval()
 
     batch_time = AverageMeter()
     loss_meter = AverageMeter()
@@ -220,9 +180,6 @@ def validate(config, data_loader, eval_graph):
 
     end = time.time()
     for idx, (images, target) in enumerate(data_loader):
-        # images = images.cuda()
-        # target = target.cuda()
-
         images = images.to_consistent(placement=placement, sbp=sbp)
         target = target.to_consistent(placement=placement, sbp=sbp)
 
@@ -234,9 +191,6 @@ def validate(config, data_loader, eval_graph):
         output = output.to_consistent(sbp=flow.sbp.broadcast).to_local()
         target = target.to_consistent(sbp=flow.sbp.broadcast).to_local()
         acc1, acc5 = accuracy(output, target, topk=(1, 5))
-
-        # acc1 = reduce_tensor(acc1)
-        # acc5 = reduce_tensor(acc5)
         loss = loss.to_consistent(sbp=flow.sbp.broadcast).to_local() #reduce_tensor(loss)
 
         loss_meter.update(loss.item(), target.size(0))
@@ -273,16 +227,12 @@ def throughput(data_loader, model, logger):
         tic1 = time.time()
         for i in range(30):
             model(images)
-        # flow.cuda.synchronize()
         tic2 = time.time()
         logger.info(f"batch_size {batch_size} throughput {30 * batch_size / (tic2 - tic1)}")
         return
 
 
 if __name__ == '__main__':
-    # import multiprocessing as mp
-    # mp.set_start_method("spawn")
-
     _, config = parse_option()
 
     if 'RANK' in os.environ and 'WORLD_SIZE' in os.environ:

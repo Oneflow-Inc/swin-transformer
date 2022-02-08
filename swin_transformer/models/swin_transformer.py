@@ -8,6 +8,7 @@ def to_2tuple(x):
 
 
 def drop_path(x, drop_prob: float = 0.5, training: bool = False):
+    print("$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$")
     """Drop paths (Stochastic Depth) per sample (when applied in main path of residual blocks).
     This is the same as the DropConnect impl I created for EfficientNet, etc networks, however,
     the original name is misleading as 'Drop Connect' is a different form of dropout in a separate paper...
@@ -160,7 +161,7 @@ class WindowAttention(nn.Module):
         self.fused_bias_add_dropout=fused_bias_add_dropout
         self.p = proj_drop
 
-    def forward(self, x, mask=None):
+    def forward(self, x, mask):
         """
         Args:
             x: input features with shape of (num_windows*B, N, C)
@@ -346,7 +347,7 @@ class SwinTransformerBlock(nn.Module):
 
         # W-MSA/SW-MSA
         attn_windows = self.attn(
-            x_windows, mask=self.attn_mask
+            x_windows, self.attn_mask
         )  # nW*B, window_size*window_size, C
 
         # merge windows
