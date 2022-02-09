@@ -25,7 +25,10 @@ def drop_path(x, drop_prob: float = 0.5, training: bool = False):
     shape = (x.shape[0],) + (1,) * (
         x.ndim - 1
     )  # work with diff dim tensors, not just 2D ConvNets
-    random_tensor = flow.rand(*shape, dtype=x.dtype, device=x.device) + keep_prob
+    if x.is_consistent:
+        random_tensor = flow.rand(*shape, dtype=x.dtype, placement=x.placement, sbp=x.sbp) + keep_prob
+    else:
+        random_tensor = flow.rand(*shape, dtype=x.dtype, device=x.device) + keep_prob
     random_tensor = random_tensor.floor()  # binarize
     output = x.div(keep_prob) * random_tensor
     return output

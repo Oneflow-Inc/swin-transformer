@@ -15,8 +15,6 @@ import numpy as np
 import oneflow as flow
 import oneflow.profiler as  profiler
 
-# import oneflow.backends.cudnn as cudnn
-
 from flowvision.loss.cross_entropy import LabelSmoothingCrossEntropy, SoftTargetCrossEntropy
 from flowvision.utils.metrics import accuracy, AverageMeter
 
@@ -72,8 +70,6 @@ if __name__ == '__main__':
     dataset_train, dataset_val, data_loader_train, data_loader_val, mixup_fn = build_loader(config)
 
     model = build_model(config)
-    model.cuda()
-    optimizer = build_optimizer(config, model)
 
     if config.AUG.MIXUP > 0.:
         # smoothing is handled with mixup label transform
@@ -83,11 +79,14 @@ if __name__ == '__main__':
     else:
         criterion = flow.nn.CrossEntropyLoss()
 
+    # placement = flow.placement("cuda", {0: [i for i in range(flow.env.get_world_size())]}, (2, 4),)
+    # sbp = [flow.sbp.broadcast, flow.sbp.broadcast]
+    placement = flow.env.all_device_placement("cuda")
+    sbp = flow.sbp.broadcast
+    
+    model.to_consistent(placement=placement, sbp=sbp)
     optimizer = build_optimizer(config, model)
-    model = flow.nn.parallel.DistributedDataParallel(model, broadcast_buffers=False)
-    # model_without_ddp = model
 
-    # criterion = flow.nn.CrossEntropyLoss()
     data_loader_train_iter = iter(data_loader_train)
 
     batch_time = AverageMeter()
@@ -95,6 +94,34 @@ if __name__ == '__main__':
     norm_meter = AverageMeter()
 
     max_accuracy = 0.0
+    # sbp = [flow.sbp.split(0), flow.sbp.split(0)]
+    sbp = flow.sbp.split(0)
+    # warm up
+    for idx in range(5):
+        model.train()
+        optimizer.zero_grad()
+
+        samples, targets = data_loader_train_iter.__next__()
+        samples = samples.cuda()
+        targets = targets.cuda()
+
+        if mixup_fn is not None:
+            samples, targets = mixup_fn(samples, targets)
+
+        
+        samples = samples.to_consistent(placement=placement, sbp=sbp)
+        targets = targets.to_consistent(placement=placement, sbp=sbp)
+
+        outputs = model(samples)
+
+        loss = criterion(outputs, targets)
+        optimizer.zero_grad()
+        loss.backward()
+
+        if config.TRAIN.CLIP_GRAD:
+            grad_norm = flow.nn.utils.clip_grad_norm_(model.parameters(), config.TRAIN.CLIP_GRAD)
+        optimizer.step()
+
     start_time = time.time()
     end = time.time()
 
@@ -108,9 +135,13 @@ if __name__ == '__main__':
 
         if mixup_fn is not None:
             samples, targets = mixup_fn(samples, targets)
+
         
+        samples = samples.to_consistent(placement=placement, sbp=sbp)
+        targets = targets.to_consistent(placement=placement, sbp=sbp)
+
         outputs = model(samples)
-        # outputs.sum().backward()
+
         loss = criterion(outputs, targets)
         optimizer.zero_grad()
         loss.backward()
@@ -119,15 +150,16 @@ if __name__ == '__main__':
             grad_norm = flow.nn.utils.clip_grad_norm_(model.parameters(), config.TRAIN.CLIP_GRAD)
         optimizer.step()
 
-        # loss_meter.update(loss.item(), targets.size(0))
-        norm_meter.update(grad_norm)
+        loss_meter.update(loss.to_local().item(), targets.size(0))
+        norm_meter.update(grad_norm.to_local())
         batch_time.update(time.time() - end)
         end = time.time()
 
-    print(outputs)
+    local_tensor = loss.to_local().numpy()
     total_time = time.time() - start_time
     total_time_str = str(datetime.timedelta(seconds=int(total_time)))
-    print(total_time_str)
+    if flow.env.get_rank() == 0:
+        print(total_time_str)
 
 
 
