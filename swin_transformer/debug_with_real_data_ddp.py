@@ -117,7 +117,7 @@ if __name__ == '__main__':
             grad_norm = flow.nn.utils.clip_grad_norm_(model.parameters(), config.TRAIN.CLIP_GRAD)
         optimizer.step()
 
-        # loss_meter.update(loss.item(), targets.size(0))
+        loss_meter.update(loss.item(), targets.size(0))
         norm_meter.update(grad_norm)
     print(loss)
 
@@ -146,7 +146,7 @@ if __name__ == '__main__':
         optimizer.step()
         
         # print('233')
-        # loss_meter.update(loss.item(), targets.size(0))
+        loss_meter.update(loss.item(), targets.size(0))
         norm_meter.update(grad_norm)
         batch_time.update(time.time() - end)
         end = time.time()
