@@ -94,12 +94,35 @@ if __name__ == '__main__':
     norm_meter = AverageMeter()
 
     max_accuracy = 0.0
-    start_time = time.time()
-    end = time.time()
-
-
     sbp = [flow.sbp.split(0), flow.sbp.split(0)]
     # sbp = flow.sbp.split(0)
+    # warm up
+    for idx in range(5):
+        model.train()
+        optimizer.zero_grad()
+
+        samples, targets = data_loader_train_iter.__next__()
+        samples = samples.cuda()
+        targets = targets.cuda()
+
+        if mixup_fn is not None:
+            samples, targets = mixup_fn(samples, targets)
+
+        
+        samples = samples.to_consistent(placement=placement, sbp=sbp)
+        targets = targets.to_consistent(placement=placement, sbp=sbp)
+
+        outputs = model(samples)
+
+        loss = criterion(outputs, targets)
+        optimizer.zero_grad()
+        loss.backward()
+
+        # if config.TRAIN.CLIP_GRAD:
+        #     grad_norm = flow.nn.utils.clip_grad_norm_(model.parameters(), config.TRAIN.CLIP_GRAD)
+        optimizer.step()
+
+    start_time = time.time()
 
     for idx in range(200):
         model.train()
