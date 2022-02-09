@@ -79,10 +79,10 @@ if __name__ == '__main__':
     else:
         criterion = flow.nn.CrossEntropyLoss()
 
-    placement = flow.placement("cuda", {0: [i for i in range(flow.env.get_world_size())]}, (2, 4),)
-    sbp = [flow.sbp.broadcast, flow.sbp.broadcast]
-    # placement = flow.env.all_device_placement("cuda")
-    # sbp = flow.sbp.broadcast
+    # placement = flow.placement("cuda", {0: [i for i in range(flow.env.get_world_size())]}, (2, 4),)
+    # sbp = [flow.sbp.broadcast, flow.sbp.broadcast]
+    placement = flow.env.all_device_placement("cuda")
+    sbp = flow.sbp.broadcast
     
     model.to_consistent(placement=placement, sbp=sbp)
     optimizer = build_optimizer(config, model)
@@ -94,8 +94,8 @@ if __name__ == '__main__':
     norm_meter = AverageMeter()
 
     max_accuracy = 0.0
-    sbp = [flow.sbp.split(0), flow.sbp.split(0)]
-    # sbp = flow.sbp.split(0)
+    # sbp = [flow.sbp.split(0), flow.sbp.split(0)]
+    sbp = flow.sbp.split(0)
     # warm up
     for idx in range(5):
         model.train()
@@ -118,11 +118,12 @@ if __name__ == '__main__':
         optimizer.zero_grad()
         loss.backward()
 
-        # if config.TRAIN.CLIP_GRAD:
-        #     grad_norm = flow.nn.utils.clip_grad_norm_(model.parameters(), config.TRAIN.CLIP_GRAD)
+        if config.TRAIN.CLIP_GRAD:
+            grad_norm = flow.nn.utils.clip_grad_norm_(model.parameters(), config.TRAIN.CLIP_GRAD)
         optimizer.step()
 
     start_time = time.time()
+    end = time.time()
 
     for idx in range(200):
         model.train()
@@ -145,12 +146,12 @@ if __name__ == '__main__':
         optimizer.zero_grad()
         loss.backward()
 
-        # if config.TRAIN.CLIP_GRAD:
-        #     grad_norm = flow.nn.utils.clip_grad_norm_(model.parameters(), config.TRAIN.CLIP_GRAD)
+        if config.TRAIN.CLIP_GRAD:
+            grad_norm = flow.nn.utils.clip_grad_norm_(model.parameters(), config.TRAIN.CLIP_GRAD)
         optimizer.step()
 
-        # loss_meter.update(loss.item(), targets.size(0))
-        # norm_meter.update(grad_norm)
+        loss_meter.update(loss.to_local().item(), targets.size(0))
+        norm_meter.update(grad_norm.to_local())
         batch_time.update(time.time() - end)
         end = time.time()
 
