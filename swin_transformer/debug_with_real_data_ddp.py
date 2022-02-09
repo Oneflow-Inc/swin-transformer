@@ -124,38 +124,60 @@ if __name__ == '__main__':
 
     start_time = time.time()
     end = time.time()
-
-    for idx in range(200):
+    
+    flow._oneflow_internal.profiler.RangePush('oneflow global train begin')
+    for idx in range(20):
         model.train()
         optimizer.zero_grad()
 
+        flow._oneflow_internal.profiler.RangePush('load data')
         samples, targets = data_loader_train_iter.__next__()
         samples = samples.cuda()
         targets = targets.cuda()
+        flow._oneflow_internal.profiler.RangePop()
 
+        flow._oneflow_internal.profiler.RangePush('mixup')
         if mixup_fn is not None:
             samples, targets = mixup_fn(samples, targets)
-
+        flow._oneflow_internal.profiler.RangePop()
         
+        flow._oneflow_internal.profiler.RangePush('to_consistent')
         samples = samples.to_consistent(placement=placement, sbp=sbp)
         targets = targets.to_consistent(placement=placement, sbp=sbp)
+        flow._oneflow_internal.profiler.RangePop()
 
+        flow._oneflow_internal.profiler.RangePush('forward')
         outputs = model(samples)
+        flow._oneflow_internal.profiler.RangePop()
 
+        flow._oneflow_internal.profiler.RangePush('loss')
         loss = criterion(outputs, targets)
+        flow._oneflow_internal.profiler.RangePop()
+        flow._oneflow_internal.profiler.RangePush('zero grad')
         optimizer.zero_grad()
+        flow._oneflow_internal.profiler.RangePop()
+        flow._oneflow_internal.profiler.RangePush('backward')
         loss.backward()
+        flow._oneflow_internal.profiler.RangePop()
 
+        flow._oneflow_internal.profiler.RangePush('clip grad')
         if config.TRAIN.CLIP_GRAD:
             grad_norm = flow.nn.utils.clip_grad_norm_(model.parameters(), config.TRAIN.CLIP_GRAD)
+        flow._oneflow_internal.profiler.RangePop()
+        flow._oneflow_internal.profiler.RangePush('optimizer step')
         optimizer.step()
-
+        flow._oneflow_internal.profiler.RangePop()
+        flow._oneflow_internal.profiler.RangePush('loss.item')
         loss_meter.update(loss.to_local().item(), targets.size(0))
+        flow._oneflow_internal.profiler.RangePop()
+        flow._oneflow_internal.profiler.RangePush('grad norm')
         norm_meter.update(grad_norm.to_local())
+        flow._oneflow_internal.profiler.RangePop()
         batch_time.update(time.time() - end)
         end = time.time()
+    flow._oneflow_internal.profiler.RangePop()
 
-    local_tensor = loss.to_local().numpy()
+    # local_tensor = loss.to_local().numpy()
     total_time = time.time() - start_time
     total_time_str = str(datetime.timedelta(seconds=int(total_time)))
     if flow.env.get_rank() == 0:
