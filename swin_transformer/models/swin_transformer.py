@@ -101,7 +101,7 @@ class WindowAttention(nn.Module):
         # Author zzk: we add trunc normal here！
         self.relative_position_bias_table = nn.Parameter(
             flow.zeros((2 * window_size[0] - 1) * (2 * window_size[1] - 1), num_heads)
-        ).to_consistent(placement=dist.get_layer_placement(0),  sbp=dist.get_nd_sbp([flow.sbp.broadcast, flow.sbp.broadcast]))  # 2*Wh-1 * 2*Ww-1, nH
+        ).to_global(placement=dist.get_layer_placement(0),  sbp=dist.get_nd_sbp([flow.sbp.broadcast, flow.sbp.broadcast]))  # 2*Wh-1 * 2*Ww-1, nH
         trunc_normal_(self.relative_position_bias_table, std=0.02)
 
         # get pair-wise relative position index for each token inside the window
@@ -118,7 +118,7 @@ class WindowAttention(nn.Module):
         relative_coords[:, :, 0] *= 2 * self.window_size[1] - 1
         relative_position_index = relative_coords.sum(-1)  # Wh*Ww, Wh*Ww
         self.register_buffer("relative_position_index", \
-            relative_position_index.to_consistent(
+            relative_position_index.to_global(
                 placement=dist.get_layer_placement(0), 
                 sbp=dist.get_nd_sbp([flow.sbp.broadcast, flow.sbp.broadcast]))
         )
@@ -284,7 +284,7 @@ class SwinTransformerBlock(nn.Module):
             attn_mask = attn_mask.masked_fill(
                 attn_mask != 0, float(-100.0)
             ).masked_fill(attn_mask == 0, float(0.0))
-            attn_mask = attn_mask.to_consistent(
+            attn_mask = attn_mask.to_global(
                 placement=dist.get_layer_placement(0), 
                 sbp=dist.get_nd_sbp([flow.sbp.broadcast, flow.sbp.broadcast]))
         else:
@@ -411,7 +411,7 @@ class PatchEmbed(nn.Module):
 
         self.proj = nn.Conv2d(
             in_chans, embed_dim, kernel_size=patch_size, stride=patch_size
-        ).to_consistent(placement=dist.get_layer_placement(0), sbp=dist.get_nd_sbp([flow.sbp.broadcast, flow.sbp.broadcast]))
+        ).to_global(placement=dist.get_layer_placement(0), sbp=dist.get_nd_sbp([flow.sbp.broadcast, flow.sbp.broadcast]))
         if norm_layer is not None:
             self.norm = norm_layer(embed_dim)
         else:

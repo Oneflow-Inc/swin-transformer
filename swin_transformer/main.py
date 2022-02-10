@@ -89,10 +89,6 @@ def main(config):
 
     optimizer = build_optimizer(config, model)
     lr_scheduler = build_scheduler(config, optimizer, len(data_loader_train))
-
-    max_accuracy = 0.0
-    if config.MODEL.RESUME:
-        max_accuracy = load_checkpoint(config, model_without_ddp, optimizer, lr_scheduler, logger)
     
     model.train()
     train_graph = TrainGraph(model=model,
@@ -102,6 +98,9 @@ def main(config):
     model.eval()
     eval_graph = EvalGraph(model=model)
 
+    max_accuracy = 0.0
+    if config.MODEL.RESUME:
+        max_accuracy = load_checkpoint(config, train_graph, logger)
 
     logger.info("Start training")
     start_time = time.time()
@@ -110,7 +109,7 @@ def main(config):
 
         train_one_epoch(config, train_graph, criterion, data_loader_train, optimizer, epoch, mixup_fn, lr_scheduler)
         if (epoch % config.SAVE_FREQ == 0 or epoch == (config.TRAIN.EPOCHS - 1)):
-            save_checkpoint(config, epoch, model_without_ddp, max_accuracy, optimizer, lr_scheduler, logger)
+            save_checkpoint(config, epoch, train_graph, max_accuracy, logger)
 
         # no validate
         acc1, acc5, loss = validate(config, data_loader_val, eval_graph)
@@ -144,12 +143,12 @@ def train_one_epoch(config, train_graph, criterion, data_loader, optimizer, epoc
         if mixup_fn is not None:
             samples, targets = mixup_fn(samples, targets)
 
-        samples = samples.to_consistent(placement=placement, sbp=sbp)
-        targets = targets.to_consistent(placement=placement, sbp=sbp)
+        samples = samples.to_global(placement=placement, sbp=sbp)
+        targets = targets.to_global(placement=placement, sbp=sbp)
 
         loss = train_graph(samples, targets)
 
-        loss_meter.update(loss.to_consistent(sbp=flow.sbp.broadcast).to_local().item(), targets.size(0))
+        loss_meter.update(loss.to_global(sbp=flow.sbp.broadcast).to_local().item(), targets.size(0))
         # norm_meter.update(grad_norm)
         batch_time.update(time.time() - end)
         end = time.time()
@@ -182,19 +181,19 @@ def validate(config, data_loader, eval_graph):
 
     end = time.time()
     for idx, (images, target) in enumerate(data_loader):
-        images = images.to_consistent(placement=placement, sbp=sbp)
-        target = target.to_consistent(placement=placement, sbp=sbp)
+        images = images.to_global(placement=placement, sbp=sbp)
+        target = target.to_global(placement=placement, sbp=sbp)
 
         # compute output
         output = eval_graph(images)
 
         # measure accuracy and record loss
         loss = criterion(output, target)
-        output = output.to_consistent(sbp=flow.sbp.broadcast).to_local()
-        target = target.to_consistent(sbp=flow.sbp.broadcast).to_local()
+        output = output.to_global(sbp=flow.sbp.broadcast).to_local()
+        target = target.to_global(sbp=flow.sbp.broadcast).to_local()
         acc1, acc5 = accuracy(output, target, topk=(1, 5))
 
-        loss = loss.to_consistent(sbp=flow.sbp.broadcast).to_local()
+        loss = loss.to_global(sbp=flow.sbp.broadcast).to_local()
 
         loss_meter.update(loss.item(), target.size(0))
         acc1_meter.update(acc1.item(), target.size(0))
@@ -239,6 +238,9 @@ if __name__ == '__main__':
 
     cfg = LazyConfig.load(args.libai_config_file)
     dist.setup_dist_util(cfg.train.dist)
+
+    print(dist.get_layer_placement(0))
+    print(dist.get_nd_sbp([flow.sbp.broadcast, flow.sbp.broadcast]))
 
     if 'RANK' in os.environ and 'WORLD_SIZE' in os.environ:
         rank = flow.env.get_rank()
