@@ -18,12 +18,12 @@ def build_scheduler(config, optimizer, n_iter_per_epoch):
 
 
     lr_scheduler = torch.optim.lr_scheduler.CosineDecayLR(
-        optimizer, decay_steps=decay_steps
+        optimizer, decay_steps=num_steps
     )
 
     lr_scheduler = torch.optim.lr_scheduler.WarmUpLR(
         lr_scheduler,
-        warmup_factor=0,
+        warmup_factor=config.TRAIN.WARMUP_LR,
         warmup_iters=warmup_steps,
         warmup_method="linear",
     )

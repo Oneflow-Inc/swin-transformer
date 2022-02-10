@@ -124,6 +124,7 @@ def build_transform(is_train, config):
                 transforms.Resize((config.DATA.IMG_SIZE, config.DATA.IMG_SIZE),
                                   interpolation=str_to_interp_mode(config.DATA.INTERPOLATION))
             )
+
     t.append(transforms.Normalize(IMAGENET_DEFAULT_MEAN, IMAGENET_DEFAULT_STD))
     t.append(transforms.ToTensor())
     return transforms.Compose(t)
