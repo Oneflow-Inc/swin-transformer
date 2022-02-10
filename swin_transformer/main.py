@@ -129,6 +129,8 @@ def train_one_epoch(config, train_graph, criterion, data_loader, optimizer, epoc
 
     placement = flow.env.all_device_placement("cuda")
     sbp = flow.sbp.split(0)
+    # placement = flow.placement("cuda", {0: [i for i in range(flow.env.get_world_size())]}, (2, 4),)
+    # sbp = [flow.sbp.split(0), flow.sbp.split(0)]
 
     num_steps = len(data_loader)
     batch_time = AverageMeter()
