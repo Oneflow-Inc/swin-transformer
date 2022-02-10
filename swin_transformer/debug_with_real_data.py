@@ -105,7 +105,8 @@ def run():
     start = time.time()
     end = time.time()
 
-    for idx in range(200):
+    for idx in range(30):
+        print("iter >>>>>>>>>>>>>>>>>>>> ", idx)
         model.train()
         optimizer.zero_grad()
 
@@ -140,7 +141,7 @@ def run():
 
 if __name__ == '__main__':
     # run without profile >>> bash debug_with_real_data.sh
-    # run()
+    run()
 
     # run with line_profiler profile >>> bash debug_with_real_data.sh > line_profile_torch.log 2>&1
     # from line_profiler import LineProfiler
@@ -150,13 +151,13 @@ if __name__ == '__main__':
     # lp.print_stats()
 
     # run with cProfile profile >>> bash debug_with_real_data.sh > cProfile_torch.log 2>&1
-    import cProfile, pstats
-    cp = cProfile.Profile()
-    cp.enable()
-    run()
-    cp.disable()
-    stats = pstats.Stats(cp).sort_stats('cumtime')
-    stats.print_stats()
+    # import cProfile, pstats
+    # cp = cProfile.Profile()
+    # cp.enable()
+    # run()
+    # cp.disable()
+    # stats = pstats.Stats(cp).sort_stats('cumtime')
+    # stats.print_stats()
     
 
 
