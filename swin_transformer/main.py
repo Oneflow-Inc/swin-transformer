@@ -83,12 +83,12 @@ def main(config):
     else:
         criterion = flow.nn.CrossEntropyLoss()
 
-    # placement = flow.placement("cuda", {0: [i for i in range(flow.env.get_world_size())]}, (2, 4),)
-    # sbp = [flow.sbp.broadcast, flow.sbp.broadcast]
-    placement = flow.env.all_device_placement("cuda")
-    sbp = flow.sbp.broadcast
+    placement = flow.placement("cuda", {0: [i for i in range(flow.env.get_world_size())]}, (2, 4),)
+    sbp = [flow.sbp.broadcast, flow.sbp.broadcast]
+    # placement = flow.env.all_device_placement("cuda")
+    # sbp = flow.sbp.broadcast
     
-    model.to_consistent(placement=placement, sbp=sbp)
+    model.to_global(placement=placement, sbp=sbp)
     
     optimizer = build_optimizer(config, model)
     lr_scheduler = build_scheduler(config, optimizer, len(data_loader_train))
@@ -127,10 +127,12 @@ def train_one_epoch(config, train_graph, criterion, data_loader, optimizer, epoc
     # model.train()
     optimizer.zero_grad()
 
-    placement = flow.env.all_device_placement("cuda")
-    sbp = flow.sbp.split(0)
-    # placement = flow.placement("cuda", {0: [i for i in range(flow.env.get_world_size())]}, (2, 4),)
-    # sbp = [flow.sbp.split(0), flow.sbp.split(0)]
+    # placement = flow.env.all_device_placement("cuda")
+    # sbp = flow.sbp.split(0)
+    # b_sbp = flow.sbp.broadcast
+    placement = flow.placement("cuda", {0: [i for i in range(flow.env.get_world_size())]}, (2, 4),)
+    sbp = [flow.sbp.split(0), flow.sbp.split(0)]
+    b_sbp = [flow.sbp.broadcast, flow.sbp.broadcast]
 
     num_steps = len(data_loader)
     batch_time = AverageMeter()
@@ -146,11 +148,11 @@ def train_one_epoch(config, train_graph, criterion, data_loader, optimizer, epoc
         if mixup_fn is not None:
             samples, targets = mixup_fn(samples, targets)
 
-        samples = samples.to_consistent(placement=placement, sbp=sbp)
-        targets = targets.to_consistent(placement=placement, sbp=sbp)
+        samples = samples.to_global(placement=placement, sbp=sbp)
+        targets = targets.to_global(placement=placement, sbp=sbp)
 
         loss = train_graph(samples, targets)
-        loss_meter.update(loss.to_consistent(sbp=flow.sbp.broadcast).to_local().item(), targets.size(0))
+        loss_meter.update(loss.to_global(sbp=b_sbp).to_local().item(), targets.size(0))
         batch_time.update(time.time() - end)
         end = time.time()
 
@@ -170,8 +172,13 @@ def train_one_epoch(config, train_graph, criterion, data_loader, optimizer, epoc
 
 @flow.no_grad()
 def validate(config, data_loader, eval_graph):
-    placement = flow.env.all_device_placement("cuda")
-    sbp = flow.sbp.split(0)
+    # placement = flow.env.all_device_placement("cuda")
+    # sbp = flow.sbp.split(0)
+    # b_sbp = flow.sbp.broadcast
+
+    placement = flow.placement("cuda", {0: [i for i in range(flow.env.get_world_size())]}, (2, 4),)
+    sbp = [flow.sbp.split(0), flow.sbp.split(0)]
+    b_sbp = [flow.sbp.broadcast, flow.sbp.broadcast]
 
     criterion = flow.nn.CrossEntropyLoss()
 
@@ -182,18 +189,18 @@ def validate(config, data_loader, eval_graph):
 
     end = time.time()
     for idx, (images, target) in enumerate(data_loader):
-        images = images.to_consistent(placement=placement, sbp=sbp)
-        target = target.to_consistent(placement=placement, sbp=sbp)
+        images = images.to_global(placement=placement, sbp=sbp)
+        target = target.to_global(placement=placement, sbp=sbp)
 
         # compute output
         output = eval_graph(images)
 
         # measure accuracy and record loss
         loss = criterion(output, target)
-        output = output.to_consistent(sbp=flow.sbp.broadcast).to_local()
-        target = target.to_consistent(sbp=flow.sbp.broadcast).to_local()
+        output = output.to_global(sbp=b_sbp).to_local()
+        target = target.to_global(sbp=b_sbp).to_local()
         acc1, acc5 = accuracy(output, target, topk=(1, 5))
-        loss = loss.to_consistent(sbp=flow.sbp.broadcast).to_local() #reduce_tensor(loss)
+        loss = loss.to_global(sbp=b_sbp).to_local()
 
         loss_meter.update(loss.item(), target.size(0))
         acc1_meter.update(acc1.item(), target.size(0))

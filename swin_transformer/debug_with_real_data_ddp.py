@@ -78,12 +78,12 @@ if __name__ == '__main__':
     else:
         criterion = flow.nn.CrossEntropyLoss()
 
-    # placement = flow.placement("cuda", {0: [i for i in range(flow.env.get_world_size())]}, (2, 4),)
-    # sbp = [flow.sbp.broadcast, flow.sbp.broadcast]
-    placement = flow.env.all_device_placement("cuda")
-    sbp = flow.sbp.broadcast
+    placement = flow.placement("cuda", {0: [i for i in range(flow.env.get_world_size())]}, (2, 4),)
+    sbp = [flow.sbp.broadcast, flow.sbp.broadcast]
+    # placement = flow.env.all_device_placement("cuda")
+    # sbp = flow.sbp.broadcast
     
-    model.to_consistent(placement=placement, sbp=sbp)
+    model.to_global(placement=placement, sbp=sbp)
     optimizer = build_optimizer(config, model)
     # lr_scheduler = build_scheduler(config, optimizer, len(data_loader_train))
     lr_scheduler = flow.optim.lr_scheduler.CosineAnnealingLR(optimizer, 2)
@@ -104,8 +104,8 @@ if __name__ == '__main__':
     end = time.time()
 
 
-    # sbp = [flow.sbp.split(0), flow.sbp.split(0)]
-    sbp = flow.sbp.split(0)
+    sbp = [flow.sbp.split(0), flow.sbp.split(0)]
+    # sbp = flow.sbp.split(0)
 
     for idx in range(200):
         model.train()
@@ -119,7 +119,7 @@ if __name__ == '__main__':
             samples, targets = mixup_fn(samples, targets)
 
         
-        samples = samples.to_consistent(placement=placement, sbp=sbp)
+        samples = samples.to_global(placement=placement, sbp=sbp)
         targets = targets.to_consistent(placement=placement, sbp=sbp)
 
         loss = train_graph(samples, targets)
