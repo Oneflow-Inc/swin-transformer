@@ -1,17 +1,14 @@
 import oneflow as flow
 import oneflow.nn as nn
 
-from flowvision.layers.weight_init import trunc_normal_
+from flowvision.layers import trunc_normal_
+from flowvision.models import to_2tuple
 
 from libai.layers import MLP, Linear, LayerNorm
 from libai.utils import distributed as dist
 
 nn.Linear = Linear
 nn.LayerNorm = LayerNorm
-
-# helpers
-def to_2tuple(x):
-    return (x, x)
 
 
 def drop_path(x, drop_prob: float = 0.5, training: bool = False):

@@ -42,6 +42,8 @@ _C.DATA.NUM_WORKERS = 8
 # Model settings
 # -----------------------------------------------------------------------------
 _C.MODEL = CN()
+# Model type
+_C.MODEL.TYPE = 'swin'
 # Model name
 _C.MODEL.NAME = 'swin_tiny_patch4_window7_224'
 # Pretrained weight from checkpoint, could be imagenet22k pretrained weight

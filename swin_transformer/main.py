@@ -122,7 +122,6 @@ def main(config):
     flow.boxing.nccl.set_fusion_threshold_mbytes(16)
     flow.boxing.nccl.set_fusion_max_ops_num(24)
 
-    logger.info(f"Creating model:{config.MODEL.TYPE}/{config.MODEL.NAME}")
     model = build_model(config)
     logger.info(str(model))
 
