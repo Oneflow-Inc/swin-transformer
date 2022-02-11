@@ -8,7 +8,7 @@
 import os
 import numpy as np
 
-import oneflow as torch
+import oneflow as flow
 from oneflow.utils.data import DataLoader
 
 from flowvision import datasets, transforms
@@ -17,29 +17,42 @@ from flowvision.data import create_transform
 from flowvision.transforms.functional import str_to_interp_mode
 from flowvision.data import Mixup
 
-from .cached_image_folder import CachedImageFolder
-from .samplers import SubsetRandomSampler
+class SubsetRandomSampler(flow.utils.data.Sampler):
+    r"""Samples elements randomly from a given list of indices, without replacement.
+
+    Arguments:
+        indices (sequence): a sequence of indices
+    """
+
+    def __init__(self, indices):
+        self.epoch = 0
+        self.indices = indices
+
+    def __iter__(self):
+        return (self.indices[i] for i in flow.randperm(len(self.indices)).tolist())
+
+    def __len__(self):
+        return len(self.indices)
+
+    def set_epoch(self, epoch):
+        self.epoch = epoch
 
 
 def build_loader(config):
     config.defrost()
     dataset_train, config.MODEL.NUM_CLASSES = build_dataset(is_train=True, config=config)
     config.freeze()
-    print(f"local rank {config.LOCAL_RANK} / global rank {torch.env.get_rank()} successfully build train dataset")
+    print(f"local rank {config.LOCAL_RANK} / global rank {flow.env.get_rank()} successfully build train dataset")
     dataset_val, _ = build_dataset(is_train=False, config=config)
-    print(f"local rank {config.LOCAL_RANK} / global rank {torch.env.get_rank()} successfully build val dataset")
+    print(f"local rank {config.LOCAL_RANK} / global rank {flow.env.get_rank()} successfully build val dataset")
 
-    num_tasks = torch.env.get_world_size()
-    global_rank = torch.env.get_rank()
-    if config.DATA.ZIP_MODE and config.DATA.CACHE_MODE == 'part':
-        indices = np.arange(torch.env.get_rank(), len(dataset_train), torch.env.get_world_size())
-        sampler_train = SubsetRandomSampler(indices)
-    else:
-        sampler_train = torch.utils.data.DistributedSampler(
-            dataset_train, num_replicas=num_tasks, rank=global_rank, shuffle=True
-        )
+    num_tasks = flow.env.get_world_size()
+    global_rank = flow.env.get_rank()
+    sampler_train = flow.utils.data.DistributedSampler(
+        dataset_train, num_replicas=num_tasks, rank=global_rank, shuffle=True
+    )
 
-    indices = np.arange(torch.env.get_rank(), len(dataset_val), torch.env.get_world_size())
+    indices = np.arange(flow.env.get_rank(), len(dataset_val), flow.env.get_world_size())
     sampler_val = SubsetRandomSampler(indices)
     data_loader_train = DataLoader(
         dataset_train, sampler=sampler_train,
@@ -72,20 +85,14 @@ def build_dataset(is_train, config):
     transform = build_transform(is_train, config)
     if config.DATA.DATASET == 'imagenet':
         prefix = 'train' if is_train else 'val'
-        if config.DATA.ZIP_MODE:
-            ann_file = prefix + "_map.txt"
-            prefix = prefix + ".zip@/"
-            dataset = CachedImageFolder(config.DATA.DATA_PATH, ann_file, prefix, transform,
-                                        cache_mode=config.DATA.CACHE_MODE if is_train else 'part')
-        else:
-            root = os.path.join(config.DATA.DATA_PATH, prefix)
-            dataset = datasets.ImageFolder(root, transform=transform)
+        root = os.path.join(config.DATA.DATA_PATH, prefix)
+        dataset = datasets.ImageFolder(root, transform=transform)
         nb_classes = 1000
     elif config.DATA.DATASET == 'cifar100':
         dataset = datasets.CIFAR100(root="./", train=is_train, transform=transform, download=True)
         nb_classes = 100
     else:
-        raise NotImplementedError("We only support ImageNet Now.")
+        raise NotImplementedError("We only support ImageNet and Cifar100 Now.")
 
     return dataset, nb_classes
 

@@ -1,33 +1,25 @@
-# --------------------------------------------------------
-# Swin Transformer
-# Copyright (c) 2021 Microsoft
-# Licensed under The MIT License [see LICENSE for details]
-# Written by Ze Liu
-# --------------------------------------------------------
-
-import os
-import time
 import argparse
 import datetime
+import functools
+import logging
 import numpy as np
+import os
+import sys
+import time
+from termcolor import colored
+
 import oneflow as flow
-import oneflow.backends.cudnn as cudnn
 
 from flowvision.loss.cross_entropy import LabelSmoothingCrossEntropy, SoftTargetCrossEntropy
 from flowvision.utils.metrics import accuracy, AverageMeter
 
-from config import get_config
-from models import build_model
-from data import build_loader
-from lr_scheduler import build_scheduler
-from optimizer import build_optimizer
-from logger import create_logger
-from utils import load_checkpoint, save_checkpoint
-
-from models.graph import TrainGraph, EvalGraph
-
-from libai.utils import distributed as dist
 from libai.config import LazyConfig
+from libai.utils import distributed as dist
+
+from config import get_config
+from data import build_loader
+from models import build_model
+from models.graph import TrainGraph, EvalGraph, build_optimizer, build_scheduler
 
 def parse_option():
     parser = argparse.ArgumentParser('Swin Transformer training and evaluation script', add_help=False)
@@ -65,6 +57,63 @@ def parse_option():
     config = get_config(args)
 
     return args, config
+
+
+@functools.lru_cache()
+def create_logger(output_dir, dist_rank=0, name=''):
+    # create logger
+    logger = logging.getLogger(name)
+    logger.setLevel(logging.DEBUG)
+    logger.propagate = False
+
+    # create formatter
+    fmt = '[%(asctime)s %(name)s] (%(filename)s %(lineno)d): %(levelname)s %(message)s'
+    color_fmt = colored('[%(asctime)s %(name)s]', 'green') + \
+                colored('(%(filename)s %(lineno)d)', 'yellow') + ': %(levelname)s %(message)s'
+
+    # create console handlers for master process
+    if dist_rank == 0:
+        console_handler = logging.StreamHandler(sys.stdout)
+        console_handler.setLevel(logging.DEBUG)
+        console_handler.setFormatter(
+            logging.Formatter(fmt=color_fmt, datefmt='%Y-%m-%d %H:%M:%S'))
+        logger.addHandler(console_handler)
+
+    # create file handlers
+    file_handler = logging.FileHandler(os.path.join(output_dir, f'log_rank{dist_rank}.txt'), mode='a')
+    file_handler.setLevel(logging.DEBUG)
+    file_handler.setFormatter(logging.Formatter(fmt=fmt, datefmt='%Y-%m-%d %H:%M:%S'))
+    logger.addHandler(file_handler)
+
+    return logger
+
+
+def load_checkpoint(config, graph, logger):
+    logger.info(f"==============> Resuming form {config.MODEL.RESUME}....................")
+    checkpoint = flow.load(config.MODEL.RESUME, global_src_rank=0)
+    msg = graph.load_state_dict(checkpoint['graph'], strict=True)
+    logger.info(msg)
+    max_accuracy = 0.0
+    if not config.EVAL_MODE and 'epoch' in checkpoint:
+        config.defrost()
+        config.TRAIN.START_EPOCH = checkpoint['epoch'] + 1
+        config.freeze()
+        logger.info(f"=> loaded successfully '{config.MODEL.RESUME}' (epoch {checkpoint['epoch']})")
+        if 'max_accuracy' in checkpoint:
+            max_accuracy = checkpoint['max_accuracy']
+    return max_accuracy
+
+
+def save_checkpoint(config, epoch, graph, max_accuracy, logger):
+    save_state = {'graph': graph.state_dict(),
+                  'max_accuracy': max_accuracy,
+                  'epoch': epoch,
+                  'config': config}
+
+    save_path = os.path.join(config.OUTPUT, f'model_{epoch}')
+    logger.info(f"{save_path} saving......")
+    flow.save(save_state, save_path, global_dst_rank=0)
+    logger.info(f"{save_path} saved !!!")
 
 
 def main(config):
@@ -238,15 +287,6 @@ if __name__ == '__main__':
     cfg = LazyConfig.load(args.libai_config_file)
     dist.setup_dist_util(cfg.train.dist)
 
-    dist_util = dist.get_dist_util()
-    # if flow.env.get_rank() == 0:
-    #     print("print dist $$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$")
-    #     print(dist_util.is_data_model_parallel())
-    #     print(dist_util.is_data_parallel())
-    #     print(dist_util.is_tensor_model_parallel())
-    #     print(dist.get_layer_placement(0))
-    #     print(dist.get_nd_sbp([flow.sbp.broadcast, flow.sbp.broadcast]))
-
     if 'RANK' in os.environ and 'WORLD_SIZE' in os.environ:
         rank = flow.env.get_rank()
         world_size = flow.env.get_world_size()
@@ -258,7 +298,6 @@ if __name__ == '__main__':
     seed = config.SEED + flow.env.get_rank()
     flow.manual_seed(seed)
     np.random.seed(seed)
-    cudnn.benchmark = True
 
     linear_scaled_lr = config.TRAIN.BASE_LR * config.DATA.BATCH_SIZE * flow.env.get_world_size() / 512.0
     linear_scaled_warmup_lr = config.TRAIN.WARMUP_LR * config.DATA.BATCH_SIZE * flow.env.get_world_size() / 512.0
