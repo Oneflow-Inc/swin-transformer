@@ -190,12 +190,15 @@ def train_one_epoch(config, model, train_graph, criterion, data_loader, optimize
         if mixup_fn is not None:
             samples, targets = mixup_fn(samples, targets)
 
+        samples = samples.to_global(placement=dist.get_all_placement(), sbp=flow.sbp.split(0))
         samples = samples.to_global(placement=dist.get_layer_placement(0), sbp=input_sbp)
+
+        targets = targets.to_global(placement=dist.get_all_placement(), sbp=flow.sbp.split(0))
         targets = targets.to_global(placement=dist.get_layer_placement(-1), sbp=input_sbp)
 
         loss = train_graph(samples, targets)
 
-        loss_meter.update(loss.to_global(sbp=loss_sbp).to_local().item(), targets.size(0))
+        loss_meter.update(loss.to_global(placement=dist.get_all_placement(), sbp=loss_sbp).to_local().item(), targets.size(0))
         batch_time.update(time.time() - end)
         end = time.time()
 
@@ -217,7 +220,6 @@ def train_one_epoch(config, model, train_graph, criterion, data_loader, optimize
 def validate(config, data_loader, model, eval_graph):
     model.eval()
 
-    placement = dist.get_layer_placement(0)
     input_sbp = dist.get_nd_sbp([flow.sbp.split(0), flow.sbp.broadcast])
     out_sbp = dist.get_nd_sbp([flow.sbp.broadcast, flow.sbp.broadcast])
 
@@ -230,21 +232,29 @@ def validate(config, data_loader, model, eval_graph):
 
     end = time.time()
     for idx, (images, target) in enumerate(data_loader):
-        images = images.to_global(placement=placement, sbp=input_sbp)
-        target = target.to_global(placement=placement, sbp=input_sbp)
+        # images = images.to_global(placement=dist.get_layer_placement(0), sbp=input_sbp)
+        # target = target.to_global(placement=dist.get_layer_placement(-1), sbp=input_sbp)
+
+        images = images.to_global(placement=dist.get_all_placement(), sbp=flow.sbp.split(0))
+        images = images.to_global(placement=dist.get_layer_placement(0), sbp=input_sbp)
+
+        target = target.to_global(placement=dist.get_all_placement(), sbp=flow.sbp.split(0))
+        # target = target.to_global(placement=dist.get_layer_placement(-1), sbp=input_sbp)
 
         # compute output
         output = eval_graph(images)
 
         # measure accuracy and record loss
-        loss = criterion(output, target)
-        output = output.to_global(sbp=out_sbp).to_local()
-        target = target.to_global(sbp=out_sbp).to_local()
+        # loss = criterion(output, target)
+        output = output.to_global(placement=dist.get_all_placement(), sbp=flow.sbp.broadcast).to_local()
+        target = target.to_global(placement=dist.get_all_placement(), sbp=flow.sbp.broadcast).to_local()
+
+
         acc1, acc5 = accuracy(output, target, topk=(1, 5))
 
-        loss = loss.to_global(sbp=out_sbp).to_local()
+        # loss = loss.to_global(sbp=out_sbp).to_local()
 
-        loss_meter.update(loss.item(), target.size(0))
+        # loss_meter.update(loss.item(), target.size(0))
         acc1_meter.update(acc1.item(), target.size(0))
         acc5_meter.update(acc5.item(), target.size(0))
 

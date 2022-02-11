@@ -107,13 +107,13 @@ class TrainGraph(flow.nn.Graph):
         self.add_optimizer(optimizer, lr_sch=lr_scheduler)
 
         # self.accumulation_steps = accumulation_steps
-        # self.set_activation_checkpointing()
+        self.set_activation_checkpointing()
         self.set_pipeline_stage_id()
 
-    # def set_activation_checkpointing(self):
-    #     for module_block in self.model.modules():
-    #         if isinstance(module_block.origin, BasicLayer):
-    #             module_block.config.activation_checkpointing = True
+    def set_activation_checkpointing(self):
+        for module_block in self.model.modules():
+            if isinstance(module_block.origin, BasicLayer):
+                module_block.config.activation_checkpointing = True
 
     
     def set_pipeline_stage_id(self):
@@ -140,11 +140,6 @@ class TrainGraph(flow.nn.Graph):
         loss = self.loss_fn(outputs, label)
         loss.backward()
         return loss
-
-
-        self.accumulation_steps = accumulation_steps
-        self.set_activation_checkpointing()
-        self.set_pipeline_stage_id()
 
 
 
