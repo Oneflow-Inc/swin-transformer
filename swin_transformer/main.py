@@ -172,8 +172,8 @@ def train_one_epoch(config, model, train_graph, criterion, data_loader, optimize
     model.train()
     optimizer.zero_grad()
     
-    placement = dist.get_layer_placement(0)
-    input_sbp = dist.get_nd_sbp([flow.sbp.split(0), flow.sbp.split(0)])
+    # placement = dist.get_layer_placement(0)
+    input_sbp = dist.get_nd_sbp([flow.sbp.split(0), flow.sbp.broadcast])
     loss_sbp = dist.get_nd_sbp([flow.sbp.broadcast, flow.sbp.broadcast])
 
     num_steps = len(data_loader)
@@ -190,8 +190,8 @@ def train_one_epoch(config, model, train_graph, criterion, data_loader, optimize
         if mixup_fn is not None:
             samples, targets = mixup_fn(samples, targets)
 
-        samples = samples.to_global(placement=placement, sbp=input_sbp)
-        targets = targets.to_global(placement=placement, sbp=input_sbp)
+        samples = samples.to_global(placement=dist.get_layer_placement(0), sbp=input_sbp)
+        targets = targets.to_global(placement=dist.get_layer_placement(-1), sbp=input_sbp)
 
         loss = train_graph(samples, targets)
 
@@ -218,7 +218,7 @@ def validate(config, data_loader, model, eval_graph):
     model.eval()
 
     placement = dist.get_layer_placement(0)
-    input_sbp = dist.get_nd_sbp([flow.sbp.split(0), flow.sbp.split(0)])
+    input_sbp = dist.get_nd_sbp([flow.sbp.split(0), flow.sbp.broadcast])
     out_sbp = dist.get_nd_sbp([flow.sbp.broadcast, flow.sbp.broadcast])
 
     criterion = flow.nn.CrossEntropyLoss()
@@ -285,6 +285,16 @@ if __name__ == '__main__':
 
     cfg = LazyConfig.load(args.libai_config_file)
     dist.setup_dist_util(cfg.train.dist)
+
+    if flow.env.get_rank() == 0:
+        dist_util = dist.get_dist_util()
+        print(f"is_tensor_model_parallel {dist_util.is_tensor_model_parallel()}")
+        print(f"is_data_parallel {dist_util.is_data_parallel()}")
+        print(f"is_pipeline_model_parallel {dist_util.is_pipeline_model_parallel()}")
+        print(f"is_data_model_parallel {dist_util.is_data_model_parallel()}")
+        print(dist.get_nd_sbp([flow.sbp.split(0), flow.sbp.broadcast]))
+        for i in range(cfg.train.dist.pipeline_num_layers):
+            print(f" layer {i} sbp: {dist.get_layer_placement(i)}")
 
     if 'RANK' in os.environ and 'WORLD_SIZE' in os.environ:
         rank = flow.env.get_rank()

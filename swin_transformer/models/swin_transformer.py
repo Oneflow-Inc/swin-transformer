@@ -77,6 +77,7 @@ class WindowAttention(nn.Module):
 
     def __init__(
         self,
+        layer_idx,
         dim,
         window_size,
         num_heads,
@@ -88,6 +89,7 @@ class WindowAttention(nn.Module):
     ):
 
         super().__init__()
+        self.layer_idx = layer_idx
         self.dim = dim
         self.window_size = window_size  # Wh, Ww
         self.num_heads = num_heads
@@ -98,7 +100,7 @@ class WindowAttention(nn.Module):
         # Author zzk: we add trunc normal here！
         self.relative_position_bias_table = nn.Parameter(
             flow.zeros((2 * window_size[0] - 1) * (2 * window_size[1] - 1), num_heads)
-        ).to_global(placement=dist.get_layer_placement(0),  sbp=dist.get_nd_sbp([flow.sbp.broadcast, flow.sbp.broadcast]))  # 2*Wh-1 * 2*Ww-1, nH
+        ).to_global(placement=dist.get_layer_placement(layer_idx),  sbp=dist.get_nd_sbp([flow.sbp.broadcast, flow.sbp.broadcast]))  # 2*Wh-1 * 2*Ww-1, nH
         trunc_normal_(self.relative_position_bias_table, std=0.02)
 
         # get pair-wise relative position index for each token inside the window
@@ -120,9 +122,9 @@ class WindowAttention(nn.Module):
                 sbp=dist.get_nd_sbp([flow.sbp.broadcast, flow.sbp.broadcast]))
         )
 
-        self.qkv = nn.Linear(dim, dim * 3, bias=qkv_bias)
+        self.qkv = nn.Linear(dim, dim * 3, bias=qkv_bias, layer_idx=layer_idx)
         self.attn_drop = nn.Dropout(attn_drop)
-        self.proj = nn.Linear(dim, dim)
+        self.proj = nn.Linear(dim, dim, layer_idx=layer_idx)
         self.proj_drop = nn.Dropout(proj_drop)
         self.softmax = nn.Softmax(dim=-1)
         self.fused_bias_add_dropout=fused_bias_add_dropout
@@ -201,6 +203,7 @@ class SwinTransformerBlock(nn.Module):
 
     def __init__(
         self,
+        layer_idx,
         dim,
         input_resolution,
         num_heads,
@@ -230,8 +233,9 @@ class SwinTransformerBlock(nn.Module):
             0 <= self.shift_size < self.window_size
         ), "shift_size must in 0-window_size"
 
-        self.norm1 = norm_layer(dim)
+        self.norm1 = norm_layer(dim, layer_idx=layer_idx)
         self.attn = WindowAttention(
+            layer_idx,
             dim,
             window_size=to_2tuple(self.window_size),
             num_heads=num_heads,
@@ -243,7 +247,7 @@ class SwinTransformerBlock(nn.Module):
         )
 
         self.drop_path = DropPath(drop_path) if drop_path > 0.0 else nn.Identity()
-        self.norm2 = norm_layer(dim)
+        self.norm2 = norm_layer(dim, layer_idx=layer_idx)
         mlp_hidden_dim = int(dim * mlp_ratio)
         self.mlp = MLP(
             hidden_size=dim,
@@ -251,6 +255,7 @@ class SwinTransformerBlock(nn.Module):
             output_dropout_prob=drop,
             bias_gelu_fusion=True,
             bias_dropout_fusion=True,
+            layer_idx=layer_idx
         )
 
         if self.shift_size > 0:
@@ -282,7 +287,7 @@ class SwinTransformerBlock(nn.Module):
                 attn_mask != 0, float(-100.0)
             ).masked_fill(attn_mask == 0, float(0.0))
             attn_mask = attn_mask.to_global(
-                placement=dist.get_layer_placement(0), 
+                placement=dist.get_layer_placement(layer_idx), 
                 sbp=dist.get_nd_sbp([flow.sbp.broadcast, flow.sbp.broadcast]))
         else:
             attn_mask = None
@@ -347,12 +352,13 @@ class PatchMerging(nn.Module):
         norm_layer (nn.Module, optional): Normalization layer.  Default: nn.LayerNorm
     """
 
-    def __init__(self, input_resolution, dim, norm_layer=nn.LayerNorm):
+    def __init__(self, layer_idx, input_resolution, dim, norm_layer=nn.LayerNorm):
         super().__init__()
+        self.layer_idx = layer_idx
         self.input_resolution = input_resolution
         self.dim = dim
-        self.reduction = nn.Linear(4 * dim, 2 * dim, bias=False)
-        self.norm = norm_layer(4 * dim)
+        self.reduction = nn.Linear(4 * dim, 2 * dim, bias=False, layer_idx=layer_idx)
+        self.norm = norm_layer(4 * dim, layer_idx=layer_idx)
 
     def forward(self, x):
         """
@@ -410,7 +416,7 @@ class PatchEmbed(nn.Module):
             in_chans, embed_dim, kernel_size=patch_size, stride=patch_size
         ).to_global(placement=dist.get_layer_placement(0), sbp=dist.get_nd_sbp([flow.sbp.broadcast, flow.sbp.broadcast]))
         if norm_layer is not None:
-            self.norm = norm_layer(embed_dim)
+            self.norm = norm_layer(embed_dim, layer_idx=0)
         else:
             self.norm = None
 
@@ -447,6 +453,7 @@ class BasicLayer(nn.Module):
 
     def __init__(
         self,
+        layer_idx,
         dim,
         input_resolution,
         depth,
@@ -464,6 +471,7 @@ class BasicLayer(nn.Module):
     ):
 
         super().__init__()
+        self.layer_idx = layer_idx
         self.dim = dim
         self.input_resolution = input_resolution
         self.depth = depth
@@ -473,6 +481,7 @@ class BasicLayer(nn.Module):
         self.blocks = nn.ModuleList(
             [
                 SwinTransformerBlock(
+                    layer_idx=layer_idx,
                     dim=dim,
                     input_resolution=input_resolution,
                     num_heads=num_heads,
@@ -495,21 +504,31 @@ class BasicLayer(nn.Module):
         # patch merging layer
         if downsample is not None:
             self.downsample = downsample(
-                input_resolution, dim=dim, norm_layer=norm_layer
+                layer_idx, input_resolution, dim=dim, norm_layer=norm_layer
             )
         else:
             self.downsample = None
 
     def forward(self, x):
         for blk in self.blocks:
-            if self.use_checkpoint:
-                raise Exception("Torch use Checkpoint!")
-                # x = checkpoint.checkpoint(blk, x)
-            else:
-                x = blk(x)
+            # if self.use_checkpoint:
+            #     raise Exception("Torch use Checkpoint!")
+            #     # x = checkpoint.checkpoint(blk, x)
+            # else:
+            x = blk(x)
         if self.downsample is not None:
             x = self.downsample(x)
         return x
+
+
+class ActivationCheckpointing(flow.nn.Module):
+    def __init__(self, layer_idx):
+        super().__init__()
+        self.layer_idx = layer_idx
+
+    def forward(self, x):
+        x = x.to_global(placement=dist.get_layer_placement(self.layer_idx))
+        return flow._C.identity(x)
 
 
 class SwinTransformer(nn.Module):
@@ -582,11 +601,11 @@ class SwinTransformer(nn.Module):
         self.patches_resolution = patches_resolution
 
         # absolute position embedding
-        if self.ape:
-            self.absolute_pos_embed = nn.Parameter(
-                flow.zeros(1, num_patches, embed_dim)
-            )
-            trunc_normal_(self.absolute_pos_embed, std=0.02)
+        # if self.ape:
+        #     self.absolute_pos_embed = nn.Parameter(
+        #         flow.zeros(1, num_patches, embed_dim)
+        #     )
+        #     trunc_normal_(self.absolute_pos_embed, std=0.02)
 
         self.pos_drop = nn.Dropout(p=drop_rate)
 
@@ -595,8 +614,10 @@ class SwinTransformer(nn.Module):
 
         # build layers
         self.layers = nn.ModuleList()
+        self.checkpoints = nn.ModuleList()
         for i_layer in range(self.num_layers):
             layer = BasicLayer(
+                layer_idx=i_layer,
                 dim=int(embed_dim * 2 ** i_layer),
                 input_resolution=(
                     patches_resolution[0] // (2 ** i_layer),
@@ -616,11 +637,12 @@ class SwinTransformer(nn.Module):
                 use_checkpoint=use_checkpoint,
             )
             self.layers.append(layer)
+            self.checkpoints.append(ActivationCheckpointing(i_layer))
 
-        self.norm = norm_layer(self.num_features)
+        self.norm = norm_layer(self.num_features, layer_idx=-1)
         self.avgpool = nn.AdaptiveAvgPool1d(1)
         self.head = (
-            nn.Linear(self.num_features, num_classes)
+            nn.Linear(self.num_features, num_classes, layer_idx=-1)
             if num_classes > 0
             else nn.Identity()
         )
@@ -638,12 +660,14 @@ class SwinTransformer(nn.Module):
 
     def forward_features(self, x):
         x = self.patch_embed(x)
-        if self.ape:
-            x = x + self.absolute_pos_embed
+        # if self.ape:
+        #     x = x + self.absolute_pos_embed
         x = self.pos_drop(x)
 
-        for layer in self.layers:
-            x = layer(x)
+        # for layer in self.layers:
+        #     x = layer(x)
+        for i in range(len(self.layers)):
+            x = self.layers[i](self.checkpoints[i](x))
 
         x = self.norm(x)  # B L C
         x = self.avgpool(x.transpose(1, 2))  # B C 1
@@ -668,7 +692,7 @@ def build_model(config):
                             qkv_bias=config.MODEL.SWIN.QKV_BIAS,
                             qk_scale=config.MODEL.SWIN.QK_SCALE,
                             drop_rate=config.MODEL.DROP_RATE,
-                            drop_path_rate=config.MODEL.DROP_PATH_RATE,
+                            drop_path_rate=0,#config.MODEL.DROP_PATH_RATE,
                             ape=config.MODEL.SWIN.APE,
                             patch_norm=config.MODEL.SWIN.PATCH_NORM,
                             use_checkpoint=config.TRAIN.USE_CHECKPOINT)

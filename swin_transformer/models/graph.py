@@ -5,6 +5,10 @@ from flowvision.scheduler.cosine_lr import CosineLRScheduler
 from flowvision.scheduler.step_lr import StepLRScheduler
 from flowvision.scheduler.scheduler import Scheduler
 
+from models.swin_transformer import *
+
+from libai.utils import distributed as dist
+
 def build_optimizer(config, model, graph_mode=False):
     """
     Build optimizer, set weight decay of normalization to 0 by default.
@@ -102,11 +106,47 @@ class TrainGraph(flow.nn.Graph):
 
         self.add_optimizer(optimizer, lr_sch=lr_scheduler)
 
+        # self.accumulation_steps = accumulation_steps
+        # self.set_activation_checkpointing()
+        self.set_pipeline_stage_id()
+
+    # def set_activation_checkpointing(self):
+    #     for module_block in self.model.modules():
+    #         if isinstance(module_block.origin, BasicLayer):
+    #             module_block.config.activation_checkpointing = True
+
+    
+    def set_pipeline_stage_id(self):
+        dist_util = dist.get_dist_util()
+
+        for module_block in self.model.modules():
+            if isinstance(module_block.origin, PatchEmbed):
+                module_block.config.stage_id = dist_util.get_layer_stage_id(0)
+            elif isinstance(
+                    module_block.origin, (BasicLayer, ActivationCheckpointing)
+            ):
+                module_block.config.stage_id = dist_util.get_layer_stage_id(
+                    module_block.origin.layer_idx
+                )
+
+        self.model.pos_drop.config.stage_id = dist_util.get_layer_stage_id(0)
+        self.model.norm.config.stage_id = dist_util.get_layer_stage_id(-1)
+        self.model.avgpool.config.stage_id = dist_util.get_layer_stage_id(-1)
+        self.model.head.config.stage_id = dist_util.get_layer_stage_id(-1)
+        self.loss_fn.config.stage_id = dist_util.get_layer_stage_id(-1)
+
     def build(self, image, label):
         outputs = self.model(image)
         loss = self.loss_fn(outputs, label)
         loss.backward()
         return loss
+
+
+        self.accumulation_steps = accumulation_steps
+        self.set_activation_checkpointing()
+        self.set_pipeline_stage_id()
+
+
 
 class EvalGraph(flow.nn.Graph):
     def __init__(self, model):

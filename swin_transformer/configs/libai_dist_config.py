@@ -23,8 +23,9 @@ train = dict(
     # Distributed arguments
     dist=dict(
         data_parallel_size=1,
-        tensor_parallel_size=1,
-        pipeline_parallel_size=1,
+        tensor_parallel_size=4,
+        pipeline_parallel_size=2,
+        pipeline_num_layers=4
     ),
     seed=1234,
     # NCCL fusion threshold megabytes, set to 0 to compatible with previous version of OneFlow
