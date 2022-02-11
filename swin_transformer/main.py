@@ -90,12 +90,10 @@ def main(config):
     optimizer = build_optimizer(config, model)
     lr_scheduler = build_scheduler(config, optimizer, len(data_loader_train))
     
-    model.train()
     train_graph = TrainGraph(model=model,
                              loss_fn=criterion,
                              optimizer=optimizer,
                              lr_scheduler=lr_scheduler)
-    model.eval()
     eval_graph = EvalGraph(model=model)
 
     max_accuracy = 0.0
@@ -107,12 +105,12 @@ def main(config):
     for epoch in range(config.TRAIN.START_EPOCH, config.TRAIN.EPOCHS):
         data_loader_train.sampler.set_epoch(epoch)
 
-        train_one_epoch(config, train_graph, criterion, data_loader_train, optimizer, epoch, mixup_fn, lr_scheduler)
+        train_one_epoch(config, model, train_graph, criterion, data_loader_train, optimizer, epoch, mixup_fn, lr_scheduler)
         if (epoch % config.SAVE_FREQ == 0 or epoch == (config.TRAIN.EPOCHS - 1)):
             save_checkpoint(config, epoch, train_graph, max_accuracy, logger)
 
         # no validate
-        acc1, acc5, loss = validate(config, data_loader_val, eval_graph)
+        acc1, acc5, loss = validate(config, data_loader_val, model, eval_graph)
         logger.info(f"Accuracy of the network on the {len(dataset_val)} test images: {acc1:.1f}%")
         max_accuracy = max(max_accuracy, acc1)
         logger.info(f'Max accuracy: {max_accuracy:.2f}%')
@@ -122,12 +120,13 @@ def main(config):
     logger.info('Training time {}'.format(total_time_str))
 
 
-def train_one_epoch(config, train_graph, criterion, data_loader, optimizer, epoch, mixup_fn, lr_scheduler):
-    # model.train()
+def train_one_epoch(config, model, train_graph, criterion, data_loader, optimizer, epoch, mixup_fn, lr_scheduler):
+    model.train()
     optimizer.zero_grad()
-
-    placement = flow.env.all_device_placement("cuda")
-    sbp = flow.sbp.split(0)
+    
+    placement = dist.get_layer_placement(0)
+    input_sbp = dist.get_nd_sbp([flow.sbp.split(0), flow.sbp.split(0)])
+    loss_sbp = dist.get_nd_sbp([flow.sbp.broadcast, flow.sbp.broadcast])
 
     num_steps = len(data_loader)
     batch_time = AverageMeter()
@@ -143,13 +142,12 @@ def train_one_epoch(config, train_graph, criterion, data_loader, optimizer, epoc
         if mixup_fn is not None:
             samples, targets = mixup_fn(samples, targets)
 
-        samples = samples.to_global(placement=placement, sbp=sbp)
-        targets = targets.to_global(placement=placement, sbp=sbp)
+        samples = samples.to_global(placement=placement, sbp=input_sbp)
+        targets = targets.to_global(placement=placement, sbp=input_sbp)
 
         loss = train_graph(samples, targets)
 
-        loss_meter.update(loss.to_global(sbp=flow.sbp.broadcast).to_local().item(), targets.size(0))
-        # norm_meter.update(grad_norm)
+        loss_meter.update(loss.to_global(sbp=loss_sbp).to_local().item(), targets.size(0))
         batch_time.update(time.time() - end)
         end = time.time()
 
@@ -168,9 +166,12 @@ def train_one_epoch(config, train_graph, criterion, data_loader, optimizer, epoc
 
 
 @flow.no_grad()
-def validate(config, data_loader, eval_graph):
-    placement = flow.env.all_device_placement("cuda")
-    sbp = flow.sbp.split(0)
+def validate(config, data_loader, model, eval_graph):
+    model.eval()
+
+    placement = dist.get_layer_placement(0)
+    input_sbp = dist.get_nd_sbp([flow.sbp.split(0), flow.sbp.split(0)])
+    out_sbp = dist.get_nd_sbp([flow.sbp.broadcast, flow.sbp.broadcast])
 
     criterion = flow.nn.CrossEntropyLoss()
 
@@ -181,19 +182,19 @@ def validate(config, data_loader, eval_graph):
 
     end = time.time()
     for idx, (images, target) in enumerate(data_loader):
-        images = images.to_global(placement=placement, sbp=sbp)
-        target = target.to_global(placement=placement, sbp=sbp)
+        images = images.to_global(placement=placement, sbp=input_sbp)
+        target = target.to_global(placement=placement, sbp=input_sbp)
 
         # compute output
         output = eval_graph(images)
 
         # measure accuracy and record loss
         loss = criterion(output, target)
-        output = output.to_global(sbp=flow.sbp.broadcast).to_local()
-        target = target.to_global(sbp=flow.sbp.broadcast).to_local()
+        output = output.to_global(sbp=out_sbp).to_local()
+        target = target.to_global(sbp=out_sbp).to_local()
         acc1, acc5 = accuracy(output, target, topk=(1, 5))
 
-        loss = loss.to_global(sbp=flow.sbp.broadcast).to_local()
+        loss = loss.to_global(sbp=out_sbp).to_local()
 
         loss_meter.update(loss.item(), target.size(0))
         acc1_meter.update(acc1.item(), target.size(0))
@@ -216,9 +217,7 @@ def validate(config, data_loader, eval_graph):
 
 
 @flow.no_grad()
-def throughput(data_loader, model, logger):
-    model.eval()
-
+def throughput(data_loader, eval_graph, logger):
     for idx, (images, _) in enumerate(data_loader):
         images = images.cuda()
         batch_size = images.shape[0]
@@ -239,8 +238,14 @@ if __name__ == '__main__':
     cfg = LazyConfig.load(args.libai_config_file)
     dist.setup_dist_util(cfg.train.dist)
 
-    print(dist.get_layer_placement(0))
-    print(dist.get_nd_sbp([flow.sbp.broadcast, flow.sbp.broadcast]))
+    dist_util = dist.get_dist_util()
+    # if flow.env.get_rank() == 0:
+    #     print("print dist $$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$")
+    #     print(dist_util.is_data_model_parallel())
+    #     print(dist_util.is_data_parallel())
+    #     print(dist_util.is_tensor_model_parallel())
+    #     print(dist.get_layer_placement(0))
+    #     print(dist.get_nd_sbp([flow.sbp.broadcast, flow.sbp.broadcast]))
 
     if 'RANK' in os.environ and 'WORLD_SIZE' in os.environ:
         rank = flow.env.get_rank()
