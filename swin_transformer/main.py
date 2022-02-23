@@ -75,7 +75,7 @@ def main(config):
     # sbp = [flow.sbp.broadcast, flow.sbp.broadcast]
     placement = flow.env.all_device_placement("cuda")
     sbp = flow.sbp.broadcast
-    model.to_consistent(placement=placement, sbp=sbp)
+    model.to_global(placement=placement, sbp=sbp)
 
     optimizer = build_optimizer(config, model)
 
@@ -151,8 +151,8 @@ def train_one_epoch(config, model, criterion, data_loader, optimizer, epoch, mix
         if mixup_fn is not None:
             samples, targets = mixup_fn(samples, targets)
         
-        samples = samples.to_consistent(placement=placement, sbp=split_sbp)
-        targets = targets.to_consistent(placement=placement, sbp=split_sbp)
+        samples = samples.to_global(placement=placement, sbp=split_sbp)
+        targets = targets.to_global(placement=placement, sbp=split_sbp)
 
         outputs = model(samples)
 
@@ -174,7 +174,7 @@ def train_one_epoch(config, model, criterion, data_loader, optimizer, epoch, mix
         optimizer.step()
         lr_scheduler.step_update(epoch * num_steps + idx)
 
-        loss = loss.to_consistent(sbp=broadcast_sbp).to_local()
+        loss = loss.to_global(sbp=broadcast_sbp).to_local()
         grad_norm = grad_norm.to_local()
         loss_meter.update(loss.item() / flow.env.get_world_size(), targets.size(0))
         norm_meter.update(grad_norm)
@@ -216,21 +216,21 @@ def validate(config, data_loader, model):
     for idx, (images, target) in enumerate(data_loader):
         # images = images.cuda()
         # target = target.cuda()
-        images = images.to_consistent(placement=placement, sbp=split_sbp)
-        target = target.to_consistent(placement=placement, sbp=split_sbp)
+        images = images.to_global(placement=placement, sbp=split_sbp)
+        target = target.to_global(placement=placement, sbp=split_sbp)
 
         # compute output
         output = model(images)
 
         # measure accuracy and record loss
         loss = criterion(output, target)
-        output = output.to_consistent(sbp=broadcast_sbp).to_local()
-        target = target.to_consistent(sbp=broadcast_sbp).to_local()
+        output = output.to_global(sbp=broadcast_sbp).to_local()
+        target = target.to_global(sbp=broadcast_sbp).to_local()
         acc1, acc5 = accuracy(output, target, topk=(1, 5))
 
         # acc1 = #reduce_tensor(acc1)
         # acc5 = #reduce_tensor(acc5)
-        loss = loss.to_consistent(sbp=broadcast_sbp).to_local() #reduce_tensor(loss)
+        loss = loss.to_global(sbp=broadcast_sbp).to_local() #reduce_tensor(loss)
 
         loss_meter.update(loss.item(), target.size(0))
         acc1_meter.update(acc1.item(), target.size(0))
