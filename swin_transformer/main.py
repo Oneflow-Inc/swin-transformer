@@ -21,6 +21,9 @@ from data import build_loader
 from models import build_model
 from models.graph import TrainGraph, EvalGraph, build_optimizer, build_scheduler
 
+from configs.swin_tiny_patch4_window7_224 import swin_tiny_patch4_window7_224_model
+from libai.config import instantiate
+
 def parse_option():
     parser = argparse.ArgumentParser('Swin Transformer training and evaluation script', add_help=False)
     parser.add_argument('--cfg', type=str, required=True, metavar="FILE", help='path to config file', )
@@ -122,7 +125,8 @@ def main(config):
     flow.boxing.nccl.set_fusion_threshold_mbytes(16)
     flow.boxing.nccl.set_fusion_max_ops_num(24)
 
-    model = build_model(config)
+    # model = build_model(config)
+    model = instantiate(swin_tiny_patch4_window7_224_model)
     logger.info(str(model))
 
     model_without_ddp = model
