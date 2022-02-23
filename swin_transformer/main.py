@@ -18,7 +18,6 @@ from libai.utils import distributed as dist
 
 from config import get_config
 from data import build_loader
-from models import build_model
 from models.graph import TrainGraph, EvalGraph, build_optimizer, build_scheduler
 
 from configs.swin_tiny_patch4_window7_224 import swin_tiny_patch4_window7_224_model
