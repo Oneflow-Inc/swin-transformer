@@ -4,47 +4,16 @@ import oneflow.nn as nn
 from flowvision.layers import trunc_normal_
 from flowvision.models import to_2tuple
 
-from libai.layers import MLP, Linear, LayerNorm
+from libai.layers import (
+    MLP,
+    LayerNorm,
+    Linear,
+    DropPath,
+)
 from libai.utils import distributed as dist
 
 nn.Linear = Linear
 nn.LayerNorm = LayerNorm
-
-
-def drop_path(x, drop_prob: float = 0.5, training: bool = False):
-    """Drop paths (Stochastic Depth) per sample (when applied in main path of residual blocks).
-    This is the same as the DropConnect impl I created for EfficientNet, etc networks, however,
-    the original name is misleading as 'Drop Connect' is a different form of dropout in a separate paper...
-    See discussion: https://github.com/tensorflow/tpu/issues/494#issuecomment-532968956 ... I've opted for
-    changing the layer and argument names to 'drop path' rather than mix DropConnect as a layer name and use
-    'survival rate' as the argument.
-    """
-    if drop_prob == 0.0 or not training:
-        return x
-    keep_prob = 1 - drop_prob
-    shape = (x.shape[0],) + (1,) * (
-        x.ndim - 1
-    )  # work with diff dim tensors, not just 2D ConvNets
-    if x.is_consistent:
-        random_tensor = flow.rand(*shape, dtype=x.dtype, placement=x.placement, sbp=x.sbp) + keep_prob
-    else:
-        random_tensor = flow.rand(*shape, dtype=x.dtype, device=x.device) + keep_prob
-    random_tensor = random_tensor.floor()  # binarize
-    output = x.div(keep_prob) * random_tensor
-    return output
-
-
-class DropPath(nn.Module):
-    """Drop paths (Stochastic Depth) per sample  (when applied in main path of residual blocks).
-    """
-
-    def __init__(self, drop_prob=None):
-        super(DropPath, self).__init__()
-        self.drop_prob = drop_prob
-
-    def forward(self, x):
-        return drop_path(x, self.drop_prob, self.training)
-
 
 def window_partition(x, window_size):
     B, H, W, C = x.shape
@@ -503,8 +472,7 @@ class BasicLayer(nn.Module):
     def forward(self, x):
         for blk in self.blocks:
             if self.use_checkpoint:
-                raise Exception("Torch use Checkpoint!")
-                # x = checkpoint.checkpoint(blk, x)
+                raise Exception("Not Support Checkpointing yet!")
             else:
                 x = blk(x)
         if self.downsample is not None:
