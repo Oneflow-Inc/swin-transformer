@@ -45,6 +45,7 @@ def build_loader(config):
         dataset_train, sampler=sampler_train,
         batch_size=config.DATA.BATCH_SIZE,
         num_workers=config.DATA.NUM_WORKERS,
+        pin_memory=False,
         drop_last=True,
     )
 
@@ -53,6 +54,7 @@ def build_loader(config):
         batch_size=config.DATA.BATCH_SIZE,
         shuffle=False,
         num_workers=config.DATA.NUM_WORKERS,
+        pin_memory=False,
         drop_last=False
     )
 
