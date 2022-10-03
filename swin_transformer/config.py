@@ -23,7 +23,7 @@ _C.DATA.BATCH_SIZE = 128
 # Path to dataset, could be overwritten by command line argument
 _C.DATA.DATA_PATH = ''
 # Dataset name
-_C.DATA.DATASET = 'cifar100'
+_C.DATA.DATASET = 'imagenet'
 # Input image size
 _C.DATA.IMG_SIZE = 224
 # Interpolation to resize image (random, bilinear, bicubic)
@@ -175,7 +175,7 @@ _C.TAG = 'default'
 # Frequency to save checkpoint
 _C.SAVE_FREQ = 10
 # Frequency to logging info
-_C.PRINT_FREQ = 10
+_C.PRINT_FREQ = 100
 # Fixed random seed
 _C.SEED = 0
 # Perform evaluation only, overwritten by command line argument
