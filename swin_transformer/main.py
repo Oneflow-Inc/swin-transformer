@@ -10,6 +10,7 @@ import time
 import argparse
 import datetime
 import numpy as np
+import random
 import oneflow as flow
 import oneflow.backends.cudnn as cudnn
 
@@ -220,7 +221,7 @@ def validate(config, data_loader, model):
         target = target.to_global(placement=placement, sbp=split_sbp)
 
         # compute output
-        output = model(images)
+        output = model(images.to(flow.float32))
 
         # measure accuracy and record loss
         loss = criterion(output, target)
@@ -288,7 +289,9 @@ if __name__ == '__main__':
 
     seed = config.SEED + flow.env.get_rank()
     flow.manual_seed(seed)
+    flow.cuda.manual_seed(seed)
     np.random.seed(seed)
+    random.seed(seed)
     cudnn.benchmark = True
 
     linear_scaled_lr = config.TRAIN.BASE_LR * config.DATA.BATCH_SIZE * flow.env.get_world_size() / 512.0

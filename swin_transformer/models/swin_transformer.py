@@ -11,7 +11,7 @@ def to_2tuple(x):
     return (x, x)
 
 
-def drop_path(x, drop_prob: float = 0.5, training: bool = False):
+def drop_path(x, drop_prob: float = 0.5, training: bool = False, scale_by_keep: bool = True):
     """Drop paths (Stochastic Depth) per sample (when applied in main path of residual blocks).
     This is the same as the DropConnect impl I created for EfficientNet, etc networks, however,
     the original name is misleading as 'Drop Connect' is a different form of dropout in a separate paper...
@@ -25,31 +25,35 @@ def drop_path(x, drop_prob: float = 0.5, training: bool = False):
     shape = (x.shape[0],) + (1,) * (
         x.ndim - 1
     )  # work with diff dim tensors, not just 2D ConvNets
-    if x.is_consistent:
-        random_tensor = flow.rand(*shape, dtype=x.dtype, placement=x.placement, sbp=x.sbp) + keep_prob
+
+    # similar opeartion to new_tensor(shape).bernoulli_(keep_prob)
+    if x.is_global:
+        random_tensor = flow.rand(*shape, dtype=x.dtype, placement=x.placement, sbp=x.sbp)
     else:
-        random_tensor = flow.rand(*shape, dtype=x.dtype, device=x.device) + keep_prob
-    random_tensor = random_tensor.floor()  # binarize
-    output = x.div(keep_prob) * random_tensor
-    return output
+        random_tensor = flow.rand(*shape, dtype=x.dtype, device=x.device)
+    random_tensor = (random_tensor < keep_prob).to(flow.float32)
+    if keep_prob > 0.0 and scale_by_keep:
+        random_tensor = random_tensor / keep_prob
+    return x * random_tensor
 
 
 class DropPath(nn.Module):
     """Drop paths (Stochastic Depth) per sample  (when applied in main path of residual blocks).
     """
 
-    def __init__(self, drop_prob=None):
+    def __init__(self, drop_prob: float = 0.0, scale_by_keep: bool = True):
         super(DropPath, self).__init__()
         self.drop_prob = drop_prob
+        self.scale_by_keep = scale_by_keep
 
     def forward(self, x):
-        return drop_path(x, self.drop_prob, self.training)
+        return drop_path(x, self.drop_prob, self.training, self.scale_by_keep)
 
 
 def window_partition(x, window_size):
     B, H, W, C = x.shape
     x = x.view(B, H // window_size, window_size, W // window_size, window_size, C)
-    windows = x.permute(0, 1, 3, 2, 4, 5).view(-1, window_size, window_size, C)
+    windows = x.permute(0, 1, 3, 2, 4, 5).contiguous().view(-1, window_size, window_size, C)
     return windows
 
 
@@ -58,7 +62,7 @@ def window_reverse(windows, window_size, H, W):
     x = windows.view(
         B, H // window_size, W // window_size, window_size, window_size, -1
     )
-    x = x.permute(0, 1, 3, 2, 4, 5).view(B, H, W, -1)
+    x = x.permute(0, 1, 3, 2, 4, 5).contiguous().view(B, H, W, -1)
     return x
 
 
@@ -149,7 +153,7 @@ class WindowAttention(nn.Module):
         relative_coords = (
             coords_flatten[:, :, None] - coords_flatten[:, None, :]
         )  # 2, Wh*Ww, Wh*Ww
-        relative_coords = relative_coords.permute(1, 2, 0)  # Wh*Ww, Wh*Ww, 2
+        relative_coords = relative_coords.permute(1, 2, 0).contiguous()  # Wh*Ww, Wh*Ww, 2
         relative_coords[:, :, 0] += self.window_size[0] - 1  # shift to start from 0
         relative_coords[:, :, 1] += self.window_size[1] - 1
         relative_coords[:, :, 0] *= 2 * self.window_size[1] - 1
@@ -190,7 +194,7 @@ class WindowAttention(nn.Module):
         )  # Wh*Ww,Wh*Ww,nH
         relative_position_bias = relative_position_bias.permute(
             2, 0, 1
-        )  # nH, Wh*Ww, Wh*Ww
+        ).contiguous()  # nH, Wh*Ww, Wh*Ww
         attn = attn + relative_position_bias.unsqueeze(0)
 
         if mask is not None:
