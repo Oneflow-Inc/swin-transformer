@@ -189,17 +189,33 @@ def validate(config, data_loader, eval_graph):
     acc5_meter = AverageMeter()
 
     end = time.time()
+    padding = False
+    cut_len = 0
     for idx, (images, target) in enumerate(data_loader):
+        if images.shape[0] < 128:
+            padding = True
+            cut_len = images.shape[0]
+            print(f"padding {cut_len}")
+            images = flow.nn.functional.pad(images, (0, 0, 0, 0, 0, 0, 0, 128 - cut_len))
+
         images = images.to_global(placement=placement, sbp=sbp)
         target = target.to_global(placement=placement, sbp=sbp)
 
         # compute output
         output = eval_graph(images.to(flow.float32))
 
+        if padding:
+            print("unpadding")
+            output = output.to_local()
+            output = flow.narrow(output, 0, 0, cut_len)
+            output = output.to_global(placement=placement, sbp=sbp)
+       
         # measure accuracy and record loss
         loss = criterion(output, target)
+
         output = output.to_global(sbp=b_sbp).to_local()
         target = target.to_global(sbp=b_sbp).to_local()
+
         acc1, acc5 = accuracy(output, target, topk=(1, 5))
         loss = loss.to_global(sbp=b_sbp).to_local()
 

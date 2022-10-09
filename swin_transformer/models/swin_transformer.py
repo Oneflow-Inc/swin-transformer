@@ -274,7 +274,7 @@ class SwinTransformerBlock(nn.Module):
             qk_scale=qk_scale,
             attn_drop=attn_drop,
             proj_drop=drop,
-            fused_bias_add_dropout=False,
+            fused_bias_add_dropout=True,
         )
 
         self.drop_path = DropPath(drop_path) if drop_path > 0.0 else nn.Identity()
@@ -285,8 +285,8 @@ class SwinTransformerBlock(nn.Module):
             hidden_features=mlp_hidden_dim,
             act_layer=act_layer,
             drop=drop,
-            fused_gelu=False,
-            fused_bias_add_dropout=False,
+            fused_gelu=True,
+            fused_bias_add_dropout=True,
         )
 
         if self.shift_size > 0:

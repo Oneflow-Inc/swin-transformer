@@ -20,8 +20,8 @@ class TrainGraph(flow.nn.Graph):
         # elif args.scale_grad:
         self.set_grad_scaler(make_static_grad_scaler())
 
-        # self.config.allow_fuse_add_to_output(True)
-        # self.config.allow_fuse_model_update_ops(True)
+        self.config.allow_fuse_add_to_output(True)
+        self.config.allow_fuse_model_update_ops(True)
 
         self.add_optimizer(optimizer, lr_sch=lr_scheduler)
 

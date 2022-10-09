@@ -16,7 +16,7 @@ def load_checkpoint(config, model, optimizer, lr_scheduler, logger):
             config.MODEL.RESUME, map_location='cpu', check_hash=True)
     else:
         # checkpoint = torch.load(config.MODEL.RESUME, map_location='cpu')
-        checkpoint = torch.load(config.MODEL.RESUME, consistent_src_rank=0)
+        checkpoint = torch.load(config.MODEL.RESUME, global_src_rank=0)
     msg = model.load_state_dict(checkpoint['model'], strict=False)
     logger.info(msg)
     max_accuracy = 0.0
@@ -45,7 +45,7 @@ def save_checkpoint(config, epoch, model, max_accuracy, optimizer, lr_scheduler,
 
     save_path = os.path.join(config.OUTPUT, f'model_{epoch}')
     logger.info(f"{save_path} saving......")
-    torch.save(save_state, save_path, consistent_dst_rank=0)
+    torch.save(save_state, save_path, global_dst_rank=0)
     logger.info(f"{save_path} saved !!!")
 
 
