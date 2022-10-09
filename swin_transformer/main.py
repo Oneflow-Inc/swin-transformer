@@ -10,6 +10,7 @@ import time
 import argparse
 import datetime
 import numpy as np
+import random
 import oneflow as flow
 import oneflow.backends.cudnn as cudnn
 
@@ -67,26 +68,26 @@ def parse_option():
 def main(config):
     dataset_train, dataset_val, data_loader_train, data_loader_val, mixup_fn = build_loader(config)
 
-    flow.boxing.nccl.set_fusion_threshold_mbytes(16)
-    flow.boxing.nccl.set_fusion_max_ops_num(24)
+    # flow.boxing.nccl.set_fusion_threshold_mbytes(16)
+    # flow.boxing.nccl.set_fusion_max_ops_num(24)
 
     logger.info(f"Creating model:{config.MODEL.TYPE}/{config.MODEL.NAME}")
     model = build_model(config)
     logger.info(str(model))
     model_without_ddp = model
 
-    if config.AUG.MIXUP > 0.:
+    # if config.AUG.MIXUP > 0.:
         # smoothing is handled with mixup label transform
-        criterion = SoftTargetCrossEntropy()
-    elif config.MODEL.LABEL_SMOOTHING > 0.:
-        criterion = LabelSmoothingCrossEntropy(smoothing=config.MODEL.LABEL_SMOOTHING)
-    else:
-        criterion = flow.nn.CrossEntropyLoss()
+    criterion = SoftTargetCrossEntropy()
+    # elif config.MODEL.LABEL_SMOOTHING > 0.:
+    #     criterion = LabelSmoothingCrossEntropy(smoothing=config.MODEL.LABEL_SMOOTHING)
+    # else:
+    #     criterion = flow.nn.CrossEntropyLoss()
 
-    placement = flow.placement("cuda", {0: [i for i in range(flow.env.get_world_size())]}, (2, 4),)
-    sbp = [flow.sbp.broadcast, flow.sbp.broadcast]
-    # placement = flow.env.all_device_placement("cuda")
-    # sbp = flow.sbp.broadcast
+    # placement = flow.placement("cuda", {0: [i for i in range(flow.env.get_world_size())]}, (2, 4),)
+    # sbp = [flow.sbp.broadcast, flow.sbp.broadcast]
+    placement = flow.env.all_device_placement("cuda")
+    sbp = flow.sbp.broadcast
     
     model.to_global(placement=placement, sbp=sbp)
     
@@ -125,14 +126,14 @@ def main(config):
 
 def train_one_epoch(config, train_graph, criterion, data_loader, optimizer, epoch, mixup_fn, lr_scheduler):
     # model.train()
-    optimizer.zero_grad()
+    # optimizer.zero_grad()
 
-    # placement = flow.env.all_device_placement("cuda")
-    # sbp = flow.sbp.split(0)
-    # b_sbp = flow.sbp.broadcast
-    placement = flow.placement("cuda", {0: [i for i in range(flow.env.get_world_size())]}, (2, 4),)
-    sbp = [flow.sbp.split(0), flow.sbp.split(0)]
-    b_sbp = [flow.sbp.broadcast, flow.sbp.broadcast]
+    placement = flow.env.all_device_placement("cuda")
+    sbp = flow.sbp.split(0)
+    b_sbp = flow.sbp.broadcast
+    # placement = flow.placement("cuda", {0: [i for i in range(flow.env.get_world_size())]}, (2, 4),)
+    # sbp = [flow.sbp.split(0), flow.sbp.split(0)]
+    # b_sbp = [flow.sbp.broadcast, flow.sbp.broadcast]
 
     num_steps = len(data_loader)
     batch_time = AverageMeter()
@@ -172,13 +173,13 @@ def train_one_epoch(config, train_graph, criterion, data_loader, optimizer, epoc
 
 @flow.no_grad()
 def validate(config, data_loader, eval_graph):
-    # placement = flow.env.all_device_placement("cuda")
-    # sbp = flow.sbp.split(0)
-    # b_sbp = flow.sbp.broadcast
+    placement = flow.env.all_device_placement("cuda")
+    sbp = flow.sbp.split(0)
+    b_sbp = flow.sbp.broadcast
 
-    placement = flow.placement("cuda", {0: [i for i in range(flow.env.get_world_size())]}, (2, 4),)
-    sbp = [flow.sbp.split(0), flow.sbp.split(0)]
-    b_sbp = [flow.sbp.broadcast, flow.sbp.broadcast]
+    # placement = flow.placement("cuda", {0: [i for i in range(flow.env.get_world_size())]}, (2, 4),)
+    # sbp = [flow.sbp.split(0), flow.sbp.split(0)]
+    # b_sbp = [flow.sbp.broadcast, flow.sbp.broadcast]
 
     criterion = flow.nn.CrossEntropyLoss()
 
@@ -193,7 +194,7 @@ def validate(config, data_loader, eval_graph):
         target = target.to_global(placement=placement, sbp=sbp)
 
         # compute output
-        output = eval_graph(images)
+        output = eval_graph(images.to(flow.float32))
 
         # measure accuracy and record loss
         loss = criterion(output, target)
@@ -254,7 +255,9 @@ if __name__ == '__main__':
 
     seed = config.SEED + flow.env.get_rank()
     flow.manual_seed(seed)
+    flow.cuda.manual_seed(seed)
     np.random.seed(seed)
+    random.seed(seed)
     cudnn.benchmark = True
 
     linear_scaled_lr = config.TRAIN.BASE_LR * config.DATA.BATCH_SIZE * flow.env.get_world_size() / 512.0
