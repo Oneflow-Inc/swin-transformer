@@ -21,8 +21,8 @@ def build_optimizer(config, model, graph_mode=False):
     parameters = set_weight_decay(model, {'absolute_pos_embed'}, {'relative_position_bias_table'})
 
     for param_group in parameters:
-        param_group["clip_grad_max_norm"] = (config.TRAIN.CLIP_GRAD,)
-        param_group["clip_grad_norm_type"] = (2.0,)
+        param_group["clip_grad_max_norm"] = config.TRAIN.CLIP_GRAD
+        param_group["clip_grad_norm_type"] = 2.0
 
     opt_lower = config.TRAIN.OPTIMIZER.NAME.lower()
     optimizer = None
