@@ -125,7 +125,7 @@ def main(config):
     logger.info('Training time {}'.format(total_time_str))
 
 def train_one_epoch(config, train_graph, criterion, data_loader, optimizer, epoch, mixup_fn, lr_scheduler):
-    # model.train()
+    train_graph.model.train()
     # optimizer.zero_grad()
 
     placement = flow.env.all_device_placement("cuda")
@@ -173,6 +173,7 @@ def train_one_epoch(config, train_graph, criterion, data_loader, optimizer, epoc
 
 @flow.no_grad()
 def validate(config, data_loader, eval_graph):
+    eval_graph.model.eval()
     placement = flow.env.all_device_placement("cuda")
     sbp = flow.sbp.split(0)
     b_sbp = flow.sbp.broadcast
